@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { createPool } from "mysql2/promise";
 import { sendEmail } from "@/lib/email";
+import { normalizeUserRole } from "@/lib/roles";
 
 function escapeHtml(value: string) {
   return value.replace(
@@ -28,6 +29,19 @@ export const auth = betterAuth({
     database: process.env.DATABASE_NAME!,
     timezone: "Z",
   }),
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        required: true,
+        defaultValue: "supervisor",
+        input: true,
+        transform: {
+          input: normalizeUserRole,
+        },
+      },
+    },
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,

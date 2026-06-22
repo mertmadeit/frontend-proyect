@@ -7,17 +7,26 @@ import { auth } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 
 import { apiFetch } from "@/lib/api";
+import {
+  normalizeUserRole,
+  USER_ROLES,
+  type UserRole,
+} from "@/lib/roles";
 
 export type ActionResult = {
   ok: boolean;
   message: string;
 };
 
-async function requireSession() {
+async function requireSession(allowedRoles: readonly UserRole[] = USER_ROLES) {
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session) {
     redirect("/login");
+  }
+
+  if (!allowedRoles.includes(normalizeUserRole(session.user.role))) {
+    redirect("/dashboard?seccion=facturas");
   }
 
   return session;
@@ -80,7 +89,7 @@ async function request(path: string, init: RequestInit) {
 export async function crearProducto(
   formData: FormData,
 ): Promise<ActionResult> {
-  await requireSession();
+  await requireSession(["admin"]);
   const producto = productFrom(formData);
 
   if (!validProduct(producto)) {
@@ -105,7 +114,7 @@ export async function crearProducto(
 }
 
 export async function eliminarProducto(id: number): Promise<ActionResult> {
-  await requireSession();
+  await requireSession(["admin"]);
 
   try {
     await request(`/productos/${id}`, { method: "DELETE" });
@@ -118,7 +127,7 @@ export async function eliminarProducto(id: number): Promise<ActionResult> {
 }
 
 export async function actualizarProducto(formData: FormData) {
-  await requireSession();
+  await requireSession(["admin"]);
   const id = Number(formData.get("id"));
   const producto = productFrom(formData);
 
@@ -138,7 +147,7 @@ export async function actualizarProducto(formData: FormData) {
 }
 
 export async function guardarCliente(formData: FormData): Promise<ActionResult> {
-  await requireSession();
+  await requireSession(["admin"]);
 
   const id = optionalId(formData);
   const nombre = requiredText(formData, "nombre");
@@ -178,7 +187,7 @@ export async function guardarCliente(formData: FormData): Promise<ActionResult> 
 }
 
 export async function eliminarCliente(id: number): Promise<ActionResult> {
-  await requireSession();
+  await requireSession(["admin"]);
 
   try {
     const res = await apiFetch(`/clientes/${id}`, {
@@ -296,7 +305,7 @@ export async function eliminarFactura(id: number): Promise<ActionResult> {
 }
 
 export async function guardarPerfil(formData: FormData): Promise<ActionResult> {
-  await requireSession();
+  await requireSession(["admin"]);
 
   const id = optionalId(formData);
   const nombre = requiredText(formData, "nombre");
@@ -330,7 +339,7 @@ export async function guardarPerfil(formData: FormData): Promise<ActionResult> {
 }
 
 export async function eliminarPerfil(id: number): Promise<ActionResult> {
-  await requireSession();
+  await requireSession(["admin"]);
 
   try {
     const res = await apiFetch(`/perfiles/${id}`, {

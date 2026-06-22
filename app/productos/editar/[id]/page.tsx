@@ -12,6 +12,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { normalizeUserRole } from "@/lib/roles";
 
 type Props = {
   params: Promise<{
@@ -24,6 +25,10 @@ export default async function EditarProducto({ params }: Props) {
   
   if (!session) {
     redirect("/login");
+  }
+
+  if (normalizeUserRole(session.user.role) !== "admin") {
+    redirect("/dashboard?seccion=facturas");
   }
 
   const { id } = await params;

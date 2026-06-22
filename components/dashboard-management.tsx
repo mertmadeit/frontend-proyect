@@ -92,6 +92,7 @@ export function DashboardManagement({
   perfiles,
   formasPago,
   estadosFactura,
+  isAdmin,
 }: {
   section: Section;
   clientes: ClienteDashboard[];
@@ -99,12 +100,17 @@ export function DashboardManagement({
   perfiles: PerfilDashboard[];
   formasPago: Option[];
   estadosFactura: StatusOption[];
+  isAdmin: boolean;
 }) {
+  const visibleTabs = isAdmin
+    ? tabs
+    : tabs.filter((tab) => tab.id === "facturas");
+
   return (
     <section id="administracion" className="px-4 lg:px-6">
       <div className="mb-4 overflow-x-auto">
         <nav className="flex w-fit items-center gap-1 rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm p-1 shadow-xs">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <Link
               key={tab.id}
               href={`/dashboard?seccion=${tab.id}#administracion`}

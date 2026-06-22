@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { auth } from "@/lib/auth";
+import { normalizeUserRole } from "@/lib/roles";
 
 import { apiFetchJson } from "@/lib/api";
 
@@ -80,14 +81,18 @@ export default async function DashboardPage({
     redirect("/login");
   }
 
+  const role = normalizeUserRole(session.user.role);
+  const isAdmin = role === "admin";
+
   const requestedSection = (await searchParams).seccion;
   const sectionValue = Array.isArray(requestedSection)
     ? requestedSection[0]
     : requestedSection;
-  const section =
-    sectionValue === "facturas" || sectionValue === "perfiles"
+  const section = isAdmin
+    ? sectionValue === "facturas" || sectionValue === "perfiles"
       ? sectionValue
-      : "clientes";
+      : "clientes"
+    : "facturas";
 
   const [
     productos,
@@ -97,10 +102,14 @@ export default async function DashboardPage({
     formasPago,
     estadosFactura,
   ] = await Promise.all([
-    apiFetchJson<Producto[]>("/productos"),
+    isAdmin
+      ? apiFetchJson<Producto[]>("/productos")
+      : Promise.resolve([] as Producto[]),
     apiFetchJson<Cliente[]>("/clientes"),
     apiFetchJson<Factura[]>("/facturas"),
-    apiFetchJson<Perfil[]>("/perfiles"),
+    isAdmin
+      ? apiFetchJson<Perfil[]>("/perfiles")
+      : Promise.resolve([] as Perfil[]),
     apiFetchJson<FormaPago[]>("/formaspago"),
     apiFetchJson<EstadoFactura[]>("/estadosfacturas"),
   ]);
@@ -157,6 +166,7 @@ export default async function DashboardPage({
           user={{
             name: session.user.name,
             email: session.user.email,
+            role,
           }}
         />
         <SidebarInset>
@@ -169,34 +179,40 @@ export default async function DashboardPage({
                     Panel de control
                   </p>
                   <h1 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-black sm:text-3xl">
-                    Inventario Luminar
+                    {isAdmin ? "Inventario Luminar" : "Facturas Luminar"}
                   </h1>
                   <p className="mt-2 text-sm text-gray-500">
-                    Una vista clara del catálogo y las existencias de la tienda.
+                    {isAdmin
+                      ? "Una vista clara del catálogo y las existencias de la tienda."
+                      : "Consulta y administra las facturas de la tienda."}
                   </p>
                 </div>
 
-                <div className="reveal-up-delay-1">
-                  <SectionCards
-                    totalProductos={productos.length}
-                    totalUnidades={totalUnidades}
-                    valorInventario={formatoPrecio.format(valorInventario)}
-                    productosBajoStock={productosBajoStock}
-                  />
-                </div>
+                {isAdmin ? (
+                  <>
+                    <div className="reveal-up-delay-1">
+                      <SectionCards
+                        totalProductos={productos.length}
+                        totalUnidades={totalUnidades}
+                        valorInventario={formatoPrecio.format(valorInventario)}
+                        productosBajoStock={productosBajoStock}
+                      />
+                    </div>
 
-                <div className="px-4 lg:px-6 reveal-up-delay-2">
-                  <ChartAreaInteractive
-                    data={productos.map((producto) => ({
-                      nombre: producto.nombre,
-                      cantidad: producto.cantidad,
-                    }))}
-                  />
-                </div>
+                    <div className="px-4 lg:px-6 reveal-up-delay-2">
+                      <ChartAreaInteractive
+                        data={productos.map((producto) => ({
+                          nombre: producto.nombre,
+                          cantidad: producto.cantidad,
+                        }))}
+                      />
+                    </div>
 
-                <div className="reveal-up-delay-3">
-                  <DataTable data={productos} />
-                </div>
+                    <div className="reveal-up-delay-3">
+                      <DataTable data={productos} />
+                    </div>
+                  </>
+                ) : null}
 
                 <div className="reveal-up-delay-3">
                   <DashboardManagement
@@ -206,6 +222,7 @@ export default async function DashboardPage({
                     perfiles={perfilesConCount}
                     formasPago={formasPago}
                     estadosFactura={estadosFactura}
+                    isAdmin={isAdmin}
                   />
                 </div>
               </div>

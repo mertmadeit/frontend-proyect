@@ -20,6 +20,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import type { UserRole } from "@/lib/roles";
 
 const management = [
   {
@@ -43,8 +44,13 @@ export function AppSidebar({
   user,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
-  user: { name: string; email: string };
+  user: { name: string; email: string; role: UserRole };
 }) {
+  const visibleManagement =
+    user.role === "admin"
+      ? management
+      : management.filter((item) => item.name === "Facturas");
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -72,7 +78,7 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavDocuments items={management} />
+        <NavDocuments items={visibleManagement} />
         <NavSecondary
           items={[
             {

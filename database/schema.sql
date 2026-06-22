@@ -1,6 +1,12 @@
 -- Esquema MySQL de Luminar.
 -- El frontend usa mysql2 para autenticación y el CRUD usa Spring Data JPA.
 
+CREATE DATABASE IF NOT EXISTS `crud_tienda`
+  DEFAULT CHARACTER SET utf8mb4
+  DEFAULT COLLATE utf8mb4_unicode_ci;
+
+USE `crud_tienda`;
+
 CREATE TABLE IF NOT EXISTS `productos` (
   `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
   `nombre` VARCHAR(191) NOT NULL,
@@ -89,12 +95,30 @@ CREATE TABLE IF NOT EXISTS `user` (
   `name` VARCHAR(255) NOT NULL,
   `email` VARCHAR(255) NOT NULL,
   `emailVerified` TINYINT(1) NOT NULL,
+  `role` VARCHAR(32) NOT NULL DEFAULT 'supervisor',
   `image` TEXT,
   `createdAt` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updatedAt` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Migración idempotente para instalaciones que ya tenían la tabla de usuarios.
+SET @role_column_exists = (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'user'
+    AND COLUMN_NAME = 'role'
+);
+SET @role_migration = IF(
+  @role_column_exists = 0,
+  'ALTER TABLE `user` ADD COLUMN `role` VARCHAR(32) NOT NULL DEFAULT ''supervisor'' AFTER `emailVerified`',
+  'SELECT 1'
+);
+PREPARE role_statement FROM @role_migration;
+EXECUTE role_statement;
+DEALLOCATE PREPARE role_statement;
 
 CREATE TABLE IF NOT EXISTS `session` (
   `id` VARCHAR(36) NOT NULL,

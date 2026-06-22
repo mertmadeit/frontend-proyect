@@ -18,6 +18,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { getUserRoleLabel, type UserRole } from "@/lib/roles";
 
 export function NavUser({
   user,
@@ -25,6 +26,7 @@ export function NavUser({
   user: {
     name: string;
     email: string;
+    role: UserRole;
   };
 }) {
   const { isMobile } = useSidebar();
@@ -59,7 +61,7 @@ export function NavUser({
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {user.email}
+                  {getUserRoleLabel(user.role)}
                 </span>
               </div>
               <EllipsisVertical className="ml-auto size-4" />
@@ -76,6 +78,9 @@ export function NavUser({
                 <span className="font-medium">{user.name}</span>
                 <span className="text-xs text-muted-foreground">
                   {user.email}
+                </span>
+                <span className="text-xs font-medium text-gray-700">
+                  {getUserRoleLabel(user.role)}
                 </span>
               </div>
             </DropdownMenuLabel>
