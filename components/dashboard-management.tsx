@@ -399,7 +399,7 @@ function FacturasCrud({
                   editLabel={`Modificar factura ${factura.numero}`}
                   deleteLabel={`Eliminar factura ${factura.numero}`}
                   downloadLabel={`Descargar factura ${factura.numero} en PDF`}
-                  downloadPath={`/facturas/${factura.id}/pdf`}
+                  downloadPath={`/api/facturas/${factura.id}/pdf`}
                   disabled={isPending}
                   onEdit={() => openForm(factura)}
                   onDelete={() => remove(factura)}
