@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { sendEmail } from "@/lib/email";
+import {
+  escapeEmailHtml,
+  renderLuminarEmail,
+  sendEmail,
+} from "@/lib/email";
 
 import { apiFetch } from "@/lib/api";
 import {
@@ -265,20 +269,23 @@ export async function guardarFactura(formData: FormData): Promise<ActionResult> 
 
       sendEmail({
         to: session.user.email,
-        subject: `Factura Generada Exitosamente (#${numero})`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #111827;">
-            <h1 style="border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">Factura Registrada</h1>
-            <p>Hola <strong>${session.user.name}</strong>,</p>
-            <p>Te confirmamos que una nueva factura ha sido generada y guardada correctamente en el sistema de Luminar.</p>
-            <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <p style="margin: 5px 0;"><strong>Folio:</strong> #${numero}</p>
-              <p style="margin: 5px 0;"><strong>Valor Total:</strong> ${formatoPrecio.format(valor)}</p>
-              <p style="margin: 5px 0;"><strong>Detalles:</strong> ${detalles}</p>
-            </div>
-            <p style="color: #6b7280; font-size: 14px;">Este es un mensaje automático generado por tu panel de control.</p>
-          </div>
-        `,
+        subject: `Factura #${numero} registrada | Luminar`,
+        html: renderLuminarEmail({
+          previewText: `La factura #${numero} se registró correctamente en Luminar.`,
+          eyebrow: "Confirmación del panel",
+          title: "Factura registrada",
+          contentHtml: `
+            <p style="margin:0 0 16px;">Hola <strong style="color:#111827;">${escapeEmailHtml(session.user.name)}</strong>,</p>
+            <p style="margin:0;">La nueva factura se guardó correctamente y ya está disponible en el panel de Luminar.</p>
+          `,
+          details: [
+            { label: "Folio", value: `#${numero}` },
+            { label: "Valor total", value: formatoPrecio.format(valor) },
+            { label: "Detalles", value: detalles },
+          ],
+          note: "Puedes consultar o descargar el documento desde la sección de facturas del panel.",
+        }),
+        text: `Hola ${session.user.name}. La factura #${numero} se registró correctamente en Luminar. Total: ${formatoPrecio.format(valor)}. Detalles: ${detalles}.`,
       }).catch(console.error);
     }
 

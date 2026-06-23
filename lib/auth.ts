@@ -1,21 +1,11 @@
 import { betterAuth } from "better-auth";
 import { createPool } from "mysql2/promise";
-import { sendEmail } from "@/lib/email";
+import {
+  escapeEmailHtml,
+  renderLuminarEmail,
+  sendEmail,
+} from "@/lib/email";
 import { normalizeUserRole } from "@/lib/roles";
-
-function escapeHtml(value: string) {
-  return value.replace(
-    /[&<>'"]/g,
-    (character) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        "'": "&#39;",
-        '"': "&quot;",
-      })[character]!,
-  );
-}
 
 export const auth = betterAuth({
   appName: "Luminar",
@@ -49,14 +39,22 @@ export const auth = betterAuth({
     sendResetPassword: async ({ user, url }) => {
       await sendEmail({
         to: user.email,
-        subject: "Restablecer contraseña - Luminar",
-        html: `
-          <h1>Restablecer contraseña</h1>
-          <p>Hola ${escapeHtml(user.name)}, recibimos una solicitud para cambiar tu contraseña.</p>
-          <p>Da clic en el siguiente enlace:</p>
-          <a href="${escapeHtml(url)}">Restablecer contraseña</a>
-          <p>Si tú no solicitaste esto, puedes ignorar este correo.</p>
-        `,
+        subject: "Restablece tu contraseña | Luminar",
+        html: renderLuminarEmail({
+          previewText: "Usa este enlace seguro para crear una nueva contraseña.",
+          eyebrow: "Seguridad de tu cuenta",
+          title: "Restablece tu contraseña",
+          contentHtml: `
+            <p style="margin:0 0 16px;">Hola <strong style="color:#111827;">${escapeEmailHtml(user.name)}</strong>,</p>
+            <p style="margin:0;">Recibimos una solicitud para cambiar la contraseña de tu cuenta Luminar. Usa el botón para elegir una nueva.</p>
+          `,
+          action: {
+            label: "Crear nueva contraseña",
+            url,
+          },
+          note: "Si no solicitaste este cambio, ignora este correo. Tu contraseña actual seguirá funcionando.",
+        }),
+        text: `Hola ${user.name}. Recibimos una solicitud para cambiar tu contraseña de Luminar. Abre este enlace: ${url}. Si no solicitaste el cambio, ignora este correo.`,
       });
     },
   },
@@ -66,13 +64,22 @@ export const auth = betterAuth({
     sendVerificationEmail: async ({ user, url }) => {
       await sendEmail({
         to: user.email,
-        subject: "Verifica tu cuenta - Luminar",
-        html: `
-          <h1>Bienvenido a Luminar</h1>
-          <p>Hola ${escapeHtml(user.name)}, gracias por registrarte.</p>
-          <p>Para activar tu cuenta, da clic en el siguiente enlace:</p>
-          <a href="${escapeHtml(url)}">Verificar cuenta</a>
-        `,
+        subject: "Confirma tu correo y activa tu cuenta | Luminar",
+        html: renderLuminarEmail({
+          previewText: "Confirma tu correo para comenzar a usar Luminar.",
+          eyebrow: "Bienvenido a Luminar",
+          title: "Tu próxima historia comienza aquí",
+          contentHtml: `
+            <p style="margin:0 0 16px;">Hola <strong style="color:#111827;">${escapeEmailHtml(user.name)}</strong>,</p>
+            <p style="margin:0;">Gracias por crear tu cuenta. Confirma tu correo para acceder al catálogo y administrar tu experiencia en Luminar.</p>
+          `,
+          action: {
+            label: "Confirmar mi correo",
+            url,
+          },
+          note: "Si no creaste esta cuenta, puedes ignorar este mensaje con tranquilidad.",
+        }),
+        text: `Hola ${user.name}. Gracias por crear tu cuenta Luminar. Confirma tu correo desde este enlace: ${url}`,
       });
     },
   },

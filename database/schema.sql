@@ -164,3 +164,116 @@ CREATE TABLE IF NOT EXISTS `verification` (
   PRIMARY KEY (`id`),
   KEY `verification_identifier_idx` (`identifier`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Datos de prueba idempotentes para el dashboard.
+START TRANSACTION;
+
+INSERT INTO `productos` (`nombre`, `precio`, `cantidad`, `created_at`, `updated_at`)
+SELECT 'Sony Alpha 7 IV', 44999, 8, NOW(3), NOW(3)
+WHERE NOT EXISTS (SELECT 1 FROM `productos` WHERE `nombre` = 'Sony Alpha 7 IV');
+
+INSERT INTO `productos` (`nombre`, `precio`, `cantidad`, `created_at`, `updated_at`)
+SELECT 'Sigma 24-70mm f/2.8 DG DN II', 24999, 12, NOW(3), NOW(3)
+WHERE NOT EXISTS (SELECT 1 FROM `productos` WHERE `nombre` = 'Sigma 24-70mm f/2.8 DG DN II');
+
+INSERT INTO `productos` (`nombre`, `precio`, `cantidad`, `created_at`, `updated_at`)
+SELECT 'Rode Wireless GO II', 6999, 15, NOW(3), NOW(3)
+WHERE NOT EXISTS (SELECT 1 FROM `productos` WHERE `nombre` = 'Rode Wireless GO II');
+
+INSERT INTO `productos` (`nombre`, `precio`, `cantidad`, `created_at`, `updated_at`)
+SELECT 'Tripode Rollei C6i', 4299, 9, NOW(3), NOW(3)
+WHERE NOT EXISTS (SELECT 1 FROM `productos` WHERE `nombre` = 'Tripode Rollei C6i');
+
+INSERT INTO `pedidos` (`nombre`, `precio`, `cantidad`, `created_at`, `updated_at`)
+SELECT 'Sony Alpha 7 IV', 44999, 1, NOW(3), NOW(3)
+WHERE NOT EXISTS (SELECT 1 FROM `pedidos` WHERE `nombre` = 'Sony Alpha 7 IV');
+
+INSERT INTO `pedidos` (`nombre`, `precio`, `cantidad`, `created_at`, `updated_at`)
+SELECT 'Rode Wireless GO II', 6999, 2, NOW(3), NOW(3)
+WHERE NOT EXISTS (SELECT 1 FROM `pedidos` WHERE `nombre` = 'Rode Wireless GO II');
+
+INSERT INTO `clientes` (`nombre`, `rfc`, `direccion`, `telefono`, `email`, `created_at`, `updated_at`)
+SELECT 'Mariana Lopez', 'LOPM900101T01', 'Av. Reforma 120, CDMX', '5512345678', 'mariana.lopez@example.test', NOW(3), NOW(3)
+WHERE NOT EXISTS (SELECT 1 FROM `clientes` WHERE `email` = 'mariana.lopez@example.test');
+
+INSERT INTO `clientes` (`nombre`, `rfc`, `direccion`, `telefono`, `email`, `created_at`, `updated_at`)
+SELECT 'Estudio Norte', 'ENO210315AB2', 'Calz. Independencia 450, Guadalajara', '3312345678', 'contacto@estudionorte.test', NOW(3), NOW(3)
+WHERE NOT EXISTS (SELECT 1 FROM `clientes` WHERE `email` = 'contacto@estudionorte.test');
+
+INSERT INTO `clientes` (`nombre`, `rfc`, `direccion`, `telefono`, `email`, `created_at`, `updated_at`)
+SELECT 'Carlos Hernandez', 'HEGC880812QK4', 'Av. Universidad 88, Monterrey', '8112345678', 'carlos.hernandez@example.test', NOW(3), NOW(3)
+WHERE NOT EXISTS (SELECT 1 FROM `clientes` WHERE `email` = 'carlos.hernandez@example.test');
+
+INSERT INTO `formaspago` (`nombre`)
+SELECT 'Tarjeta'
+WHERE NOT EXISTS (SELECT 1 FROM `formaspago` WHERE `nombre` = 'Tarjeta');
+
+INSERT INTO `formaspago` (`nombre`)
+SELECT 'Transferencia'
+WHERE NOT EXISTS (SELECT 1 FROM `formaspago` WHERE `nombre` = 'Transferencia');
+
+INSERT INTO `formaspago` (`nombre`)
+SELECT 'Efectivo'
+WHERE NOT EXISTS (SELECT 1 FROM `formaspago` WHERE `nombre` = 'Efectivo');
+
+INSERT INTO `estadosfacturas` (`estado`)
+SELECT 'Pendiente'
+WHERE NOT EXISTS (SELECT 1 FROM `estadosfacturas` WHERE `estado` = 'Pendiente');
+
+INSERT INTO `estadosfacturas` (`estado`)
+SELECT 'Pagada'
+WHERE NOT EXISTS (SELECT 1 FROM `estadosfacturas` WHERE `estado` = 'Pagada');
+
+INSERT INTO `estadosfacturas` (`estado`)
+SELECT 'Cancelada'
+WHERE NOT EXISTS (SELECT 1 FROM `estadosfacturas` WHERE `estado` = 'Cancelada');
+
+INSERT INTO `perfiles` (`nombre`)
+SELECT 'Administrador'
+WHERE NOT EXISTS (SELECT 1 FROM `perfiles` WHERE `nombre` = 'Administrador');
+
+INSERT INTO `perfiles` (`nombre`)
+SELECT 'Supervisor'
+WHERE NOT EXISTS (SELECT 1 FROM `perfiles` WHERE `nombre` = 'Supervisor');
+
+INSERT INTO `facturas` (
+  `numero`, `detalles`, `valor`, `archivo`, `idCliente`, `idforma`, `idestado`, `created_at`, `updated_at`
+)
+SELECT
+  1001,
+  'Sony Alpha 7 IV - 1 pieza',
+  44999,
+  'factura-1001.pdf',
+  cliente.id,
+  forma.id,
+  estado.id,
+  NOW(3),
+  NOW(3)
+FROM `clientes` AS cliente
+JOIN `formaspago` AS forma ON forma.nombre = 'Tarjeta'
+JOIN `estadosfacturas` AS estado ON estado.estado = 'Pagada'
+WHERE cliente.email = 'mariana.lopez@example.test'
+  AND NOT EXISTS (SELECT 1 FROM `facturas` WHERE `numero` = 1001)
+LIMIT 1;
+
+INSERT INTO `facturas` (
+  `numero`, `detalles`, `valor`, `archivo`, `idCliente`, `idforma`, `idestado`, `created_at`, `updated_at`
+)
+SELECT
+  1002,
+  'Rode Wireless GO II - 2 piezas',
+  13998,
+  'factura-1002.pdf',
+  cliente.id,
+  forma.id,
+  estado.id,
+  NOW(3),
+  NOW(3)
+FROM `clientes` AS cliente
+JOIN `formaspago` AS forma ON forma.nombre = 'Transferencia'
+JOIN `estadosfacturas` AS estado ON estado.estado = 'Pendiente'
+WHERE cliente.email = 'contacto@estudionorte.test'
+  AND NOT EXISTS (SELECT 1 FROM `facturas` WHERE `numero` = 1002)
+LIMIT 1;
+
+COMMIT;
