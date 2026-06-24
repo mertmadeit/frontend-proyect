@@ -7,6 +7,7 @@ import {
   eliminarUsuario,
   guardarUsuario,
 } from "@/app/dashboard/actions";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +58,7 @@ export function UsersManagement({
   const router = useRouter();
   const [editing, setEditing] = useState<ManagedUser | null>(null);
   const [open, setOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<ManagedUser | null>(null);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -93,13 +95,18 @@ export function UsersManagement({
     });
   }
 
-  function remove(user: ManagedUser) {
-    if (!window.confirm(`¿Eliminar la cuenta de ${user.name}?`)) return;
+  function confirmRemove(user: ManagedUser) {
+    setItemToDelete(user);
+  }
+
+  function remove() {
+    if (!itemToDelete) return;
 
     startTransition(async () => {
-      const result = await eliminarUsuario(user.id);
+      const result = await eliminarUsuario(itemToDelete.id);
       setFeedback(result.message);
       if (result.ok) router.refresh();
+      setItemToDelete(null);
     });
   }
 
@@ -187,7 +194,7 @@ export function UsersManagement({
                             size="icon"
                             variant="ghost"
                             disabled={isPending || isCurrentUser}
-                            onClick={() => remove(user)}
+                            onClick={() => confirmRemove(user)}
                             aria-label={`Eliminar ${user.name}`}
                             className="text-red-600 hover:bg-red-50 hover:text-red-700"
                           >
@@ -282,6 +289,14 @@ export function UsersManagement({
           </form>
         </DialogContent>
       </Dialog>
+      
+      <ConfirmDialog
+        open={itemToDelete !== null}
+        onOpenChange={(open) => !open && setItemToDelete(null)}
+        title={itemToDelete ? `¿Eliminar la cuenta de ${itemToDelete.name}?` : ""}
+        description="Esta acción eliminará el acceso del usuario y no se puede deshacer."
+        onConfirm={remove}
+      />
     </Card>
   );
 }

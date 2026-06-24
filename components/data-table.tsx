@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Loader2, PackageOpen, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { crearProducto, eliminarProducto } from "@/app/dashboard/actions";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +50,8 @@ export function DataTable({ data }: { data: ProductoDashboard[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<ProductoDashboard | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<ProductoDashboard | null>(null);
   const [message, setMessage] = useState("");
   const [feedback, setFeedback] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -74,13 +77,18 @@ export function DataTable({ data }: { data: ProductoDashboard[] }) {
     });
   }
 
-  function remove(producto: ProductoDashboard) {
-    if (!window.confirm(`¿Eliminar ${producto.nombre}?`)) return;
+  function confirmRemove(producto: ProductoDashboard) {
+    setItemToDelete(producto);
+  }
 
+  function remove() {
+    if (!itemToDelete) return;
+    
     startTransition(async () => {
-      const result = await eliminarProducto(producto.id);
+      const result = await eliminarProducto(itemToDelete.id);
       setFeedback(result.message);
       if (result.ok) router.refresh();
+      setItemToDelete(null);
     });
   }
 
@@ -187,7 +195,7 @@ export function DataTable({ data }: { data: ProductoDashboard[] }) {
                                 size="icon"
                                 aria-label={`Eliminar ${producto.nombre}`}
                                 disabled={isPending}
-                                onClick={() => remove(producto)}
+                                onClick={() => confirmRemove(producto)}
                                 className="text-gray-500 hover:bg-red-50 hover:text-red-600"
                               >
                                 <Trash2 className="size-4" />
@@ -254,6 +262,14 @@ export function DataTable({ data }: { data: ProductoDashboard[] }) {
           </form>
         </DialogContent>
       </Dialog>
+      
+      <ConfirmDialog
+        open={itemToDelete !== null}
+        onOpenChange={(open) => !open && setItemToDelete(null)}
+        title={itemToDelete ? `¿Eliminar ${itemToDelete.nombre}?` : ""}
+        description="Esta acción no se puede deshacer. El producto será eliminado permanentemente."
+        onConfirm={remove}
+      />
     </div>
   );
 }

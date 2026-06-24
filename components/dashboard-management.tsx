@@ -12,6 +12,7 @@ import {
   guardarFactura,
   guardarPerfil,
 } from "@/app/dashboard/actions";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -164,6 +165,7 @@ function ClientesCrud({ data }: { data: ClienteDashboard[] }) {
   const [message, setMessage] = useState("");
   const [feedback, setFeedback] = useState("");
   const [search, setSearch] = useState("");
+  const [itemToDelete, setItemToDelete] = useState<ClienteDashboard | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const filteredData = data.filter((c) =>
@@ -195,13 +197,18 @@ function ClientesCrud({ data }: { data: ClienteDashboard[] }) {
     });
   }
 
-  function remove(cliente: ClienteDashboard) {
-    if (!window.confirm(`¿Eliminar a ${cliente.nombre}?`)) return;
+  function confirmRemove(cliente: ClienteDashboard) {
+    setItemToDelete(cliente);
+  }
+
+  function remove() {
+    if (!itemToDelete) return;
 
     startTransition(async () => {
-      const result = await eliminarCliente(cliente.id);
+      const result = await eliminarCliente(itemToDelete.id);
       setFeedback(result.message);
       if (result.ok) router.refresh();
+      setItemToDelete(null);
     });
   }
 
@@ -239,7 +246,7 @@ function ClientesCrud({ data }: { data: ClienteDashboard[] }) {
                   deleteLabel={`Eliminar ${cliente.nombre}`}
                   disabled={isPending}
                   onEdit={() => openForm(cliente)}
-                  onDelete={() => remove(cliente)}
+                  onDelete={() => confirmRemove(cliente)}
                 />
               </TableRow>
             ))
@@ -296,6 +303,14 @@ function ClientesCrud({ data }: { data: ClienteDashboard[] }) {
           </form>
         </DialogContent>
       </Dialog>
+      
+      <ConfirmDialog
+        open={itemToDelete !== null}
+        onOpenChange={(open) => !open && setItemToDelete(null)}
+        title={itemToDelete ? `¿Eliminar a ${itemToDelete.nombre}?` : ""}
+        description="El cliente y todas sus referencias podrían ser eliminados."
+        onConfirm={remove}
+      />
     </CrudCard>
   );
 }
@@ -321,6 +336,7 @@ function FacturasCrud({
   const [message, setMessage] = useState("");
   const [feedback, setFeedback] = useState("");
   const [search, setSearch] = useState("");
+  const [itemToDelete, setItemToDelete] = useState<FacturaDashboard | null>(null);
   const [isPending, startTransition] = useTransition();
   const [valor, setValor] = useState<number>(0);
   const [detalles, setDetalles] = useState<string>("");
@@ -361,13 +377,18 @@ function FacturasCrud({
     });
   }
 
-  function remove(factura: FacturaDashboard) {
-    if (!window.confirm(`¿Eliminar la factura #${factura.numero}?`)) return;
+  function confirmRemove(factura: FacturaDashboard) {
+    setItemToDelete(factura);
+  }
+
+  function remove() {
+    if (!itemToDelete) return;
 
     startTransition(async () => {
-      const result = await eliminarFactura(factura.id);
+      const result = await eliminarFactura(itemToDelete.id);
       setFeedback(result.message);
       if (result.ok) router.refresh();
+      setItemToDelete(null);
     });
   }
 
@@ -436,7 +457,7 @@ function FacturasCrud({
                   downloadPath={`/api/facturas/${factura.id}/pdf`}
                   disabled={isPending}
                   onEdit={canManage ? () => openForm(factura) : undefined}
-                  onDelete={canManage ? () => remove(factura) : undefined}
+                  onDelete={canManage ? () => confirmRemove(factura) : undefined}
                 />
               </TableRow>
             ))
@@ -584,6 +605,14 @@ function FacturasCrud({
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={itemToDelete !== null}
+        onOpenChange={(open) => !open && setItemToDelete(null)}
+        title={itemToDelete ? `¿Eliminar la factura #${itemToDelete.numero}?` : ""}
+        description="Esta factura será eliminada permanentemente del registro."
+        onConfirm={remove}
+      />
     </CrudCard>
   );
 }
@@ -595,6 +624,7 @@ function PerfilesCrud({ data }: { data: PerfilDashboard[] }) {
   const [message, setMessage] = useState("");
   const [feedback, setFeedback] = useState("");
   const [search, setSearch] = useState("");
+  const [itemToDelete, setItemToDelete] = useState<PerfilDashboard | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const filteredData = data.filter((p) =>
@@ -624,13 +654,18 @@ function PerfilesCrud({ data }: { data: PerfilDashboard[] }) {
     });
   }
 
-  function remove(perfil: PerfilDashboard) {
-    if (!window.confirm(`¿Eliminar el perfil ${perfil.nombre}?`)) return;
+  function confirmRemove(perfil: PerfilDashboard) {
+    setItemToDelete(perfil);
+  }
+
+  function remove() {
+    if (!itemToDelete) return;
 
     startTransition(async () => {
-      const result = await eliminarPerfil(perfil.id);
+      const result = await eliminarPerfil(itemToDelete.id);
       setFeedback(result.message);
       if (result.ok) router.refresh();
+      setItemToDelete(null);
     });
   }
 
@@ -668,7 +703,7 @@ function PerfilesCrud({ data }: { data: PerfilDashboard[] }) {
                   deleteLabel={`Eliminar ${perfil.nombre}`}
                   disabled={isPending}
                   onEdit={() => openForm(perfil)}
-                  onDelete={() => remove(perfil)}
+                  onDelete={() => confirmRemove(perfil)}
                 />
               </TableRow>
             ))
@@ -706,6 +741,14 @@ function PerfilesCrud({ data }: { data: PerfilDashboard[] }) {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={itemToDelete !== null}
+        onOpenChange={(open) => !open && setItemToDelete(null)}
+        title={itemToDelete ? `¿Eliminar el perfil ${itemToDelete.nombre}?` : ""}
+        description="Si hay usuarios asignados a este perfil, la eliminación no será posible."
+        onConfirm={remove}
+      />
     </CrudCard>
   );
 }
