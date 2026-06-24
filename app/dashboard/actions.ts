@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import {
   escapeEmailHtml,
@@ -88,6 +89,70 @@ function validProduct(producto: ReturnType<typeof productFrom>) {
 async function request(path: string, init: RequestInit, role: unknown) {
   const response = await apiFetchForRole(path, role, init);
   if (!response.ok) throw new Error(`API error: ${response.status}`);
+}
+
+const invoicePriceFormatter = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+});
+
+async function sendInvoiceToClient({
+  facturaId,
+  numero,
+  valor,
+  detalles,
+  cliente,
+}: {
+  facturaId?: number;
+  numero: number;
+  valor: number;
+  detalles: string;
+  cliente: { nombre: string; email: string };
+}) {
+  try {
+    let attachments:
+      | Array<{ filename: string; content: Buffer; contentType: string }>
+      | undefined;
+
+    if (facturaId) {
+      const pdfResponse = await apiFetch(`/facturas/${facturaId}/pdf`);
+      if (pdfResponse.ok) {
+        attachments = [
+          {
+            filename: `factura-${numero}.pdf`,
+            content: Buffer.from(await pdfResponse.arrayBuffer()),
+            contentType: "application/pdf",
+          },
+        ];
+      }
+    }
+
+    await sendEmail({
+      to: cliente.email,
+      subject: `Tu factura #${numero} | Luminar`,
+      html: renderLuminarEmail({
+        previewText: `Tu factura #${numero} de Luminar ya está disponible.`,
+        eyebrow: "Comprobante de compra",
+        title: "Tu factura está lista",
+        contentHtml: `
+          <p style="margin:0 0 16px;">Hola <strong style="color:#111827;">${escapeEmailHtml(cliente.nombre)}</strong>,</p>
+          <p style="margin:0;">Gracias por tu compra. Te enviamos la factura asociada a tu registro de cliente en Luminar.</p>
+        `,
+        details: [
+          { label: "Folio", value: `#${numero}` },
+          { label: "Valor total", value: invoicePriceFormatter.format(valor) },
+          { label: "Detalles", value: detalles },
+        ],
+        note: attachments
+          ? "Encontrarás el documento PDF adjunto a este correo."
+          : "El comprobante quedó registrado correctamente en Luminar.",
+      }),
+      text: `Hola ${cliente.nombre}. Te enviamos tu factura #${numero} de Luminar. Total: ${invoicePriceFormatter.format(valor)}. Detalles: ${detalles}.`,
+      attachments,
+    });
+  } catch (error) {
+    console.error("No fue posible enviar la factura al cliente.", error);
+  }
 }
 
 export async function crearProducto(
@@ -227,13 +292,35 @@ export async function guardarFactura(formData: FormData): Promise<ActionResult> 
     return { ok: false, message: "Completa todos los campos de la factura." };
   }
 
-  // Check for duplicate invoice number
-  const dupRes = await apiFetch(`/facturas/check-duplicate?numero=${numero}${id ? `&excludeId=${id}` : ""}`);
-  if (!dupRes.ok) {
-    return { ok: false, message: "No fue posible validar el número de factura." };
+  let duplicateExists = false;
+  let cliente: { nombre: string; email: string } | null = null;
+
+  try {
+    const [dupRes, selectedClient] = await Promise.all([
+      apiFetch(
+        `/facturas/check-duplicate?numero=${numero}${id ? `&excludeId=${id}` : ""}`,
+      ),
+      id
+        ? Promise.resolve(null)
+        : apiFetchJson<{ nombre: string; email: string }>(
+            `/clientes/${idCliente}`,
+          ),
+    ]);
+
+    if (!dupRes.ok) {
+      return {
+        ok: false,
+        message: "No fue posible validar el número de factura.",
+      };
+    }
+
+    duplicateExists = ((await dupRes.json()) as { exists: boolean }).exists;
+    cliente = selectedClient;
+  } catch (error) {
+    return failure(error, "No fue posible validar los datos de la factura.");
   }
-  const dupData = await dupRes.json();
-  if (dupData.exists) {
+
+  if (duplicateExists) {
     return { ok: false, message: "Ya existe una factura con ese número." };
   }
 
@@ -245,15 +332,6 @@ export async function guardarFactura(formData: FormData): Promise<ActionResult> 
     idestado,
     detalles,
   };
-
-  let cliente: { nombre: string; email: string };
-  try {
-    cliente = await apiFetchJson<{ nombre: string; email: string }>(
-      `/clientes/${idCliente}`,
-    );
-  } catch (error) {
-    return failure(error, "No fue posible encontrar al cliente de la factura.");
-  }
 
   try {
     if (id) {
@@ -272,68 +350,22 @@ export async function guardarFactura(formData: FormData): Promise<ActionResult> 
       if (!res.ok) throw new Error(`Error ${res.status}`);
 
       const facturaCreada = (await res.json()) as { id?: number };
-      if (!cliente.email) {
+      if (!cliente?.email) {
         return {
           ok: true,
           message: "Factura agregada, pero el cliente no tiene correo registrado.",
         };
       }
 
-      const formatoPrecio = new Intl.NumberFormat("es-MX", {
-        style: "currency",
-        currency: "MXN",
-      });
-
-      let attachments:
-        | Array<{ filename: string; content: Buffer; contentType: string }>
-        | undefined;
-
-      if (facturaCreada.id) {
-        const pdfResponse = await apiFetch(`/facturas/${facturaCreada.id}/pdf`);
-        if (pdfResponse.ok) {
-          attachments = [
-            {
-              filename: `factura-${numero}.pdf`,
-              content: Buffer.from(await pdfResponse.arrayBuffer()),
-              contentType: "application/pdf",
-            },
-          ];
-        }
-      }
-
-      try {
-        await sendEmail({
-          to: cliente.email,
-          subject: `Tu factura #${numero} | Luminar`,
-          html: renderLuminarEmail({
-            previewText: `Tu factura #${numero} de Luminar ya está disponible.`,
-            eyebrow: "Comprobante de compra",
-            title: "Tu factura está lista",
-            contentHtml: `
-              <p style="margin:0 0 16px;">Hola <strong style="color:#111827;">${escapeEmailHtml(cliente.nombre)}</strong>,</p>
-              <p style="margin:0;">Gracias por tu compra. Te enviamos la factura asociada a tu registro de cliente en Luminar.</p>
-            `,
-            details: [
-              { label: "Folio", value: `#${numero}` },
-              { label: "Valor total", value: formatoPrecio.format(valor) },
-              { label: "Detalles", value: detalles },
-            ],
-            note: attachments
-              ? "Encontrarás el documento PDF adjunto a este correo."
-              : "El comprobante quedó registrado correctamente en Luminar.",
-          }),
-          text: `Hola ${cliente.nombre}. Te enviamos tu factura #${numero} de Luminar. Total: ${formatoPrecio.format(valor)}. Detalles: ${detalles}.`,
-          attachments,
+      after(async () => {
+        await sendInvoiceToClient({
+          facturaId: facturaCreada.id,
+          numero,
+          valor,
+          detalles,
+          cliente,
         });
-      } catch (error) {
-        console.error(error);
-        revalidatePath("/dashboard");
-        return {
-          ok: true,
-          message:
-            "Factura agregada, pero no fue posible enviarla al correo del cliente.",
-        };
-      }
+      });
     }
 
     revalidatePath("/dashboard");

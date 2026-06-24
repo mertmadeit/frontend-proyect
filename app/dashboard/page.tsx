@@ -72,6 +72,21 @@ type EstadoFactura = {
   estado: string;
 };
 
+type DashboardSection =
+  | "resumen"
+  | "clientes"
+  | "facturas"
+  | "perfiles"
+  | "usuarios";
+
+const ADMIN_SECTIONS = new Set<DashboardSection>([
+  "resumen",
+  "clientes",
+  "facturas",
+  "perfiles",
+  "usuarios",
+]);
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -94,24 +109,62 @@ export default async function DashboardPage({
   const sectionValue = Array.isArray(requestedSection)
     ? requestedSection[0]
     : requestedSection;
-  const section = isAdmin
-    ? sectionValue === "facturas" ||
-      sectionValue === "perfiles" ||
-      sectionValue === "usuarios"
-      ? sectionValue
-      : "clientes"
-    : "facturas";
+  const section: DashboardSection =
+    isAdmin &&
+    typeof sectionValue === "string" &&
+    ADMIN_SECTIONS.has(sectionValue as DashboardSection)
+      ? (sectionValue as DashboardSection)
+      : isAdmin
+        ? "resumen"
+        : "facturas";
 
-  const userList = isAdmin
-    ? await auth.api.listUsers({
-        query: {
-          limit: 100,
-          sortBy: "createdAt",
-          sortDirection: "desc",
-        },
-        headers: requestHeaders,
-      })
-    : { users: [], total: 0 };
+  const needsUsers =
+    isAdmin && (section === "usuarios" || section === "perfiles");
+  const needsProducts = isAdmin && section === "resumen";
+  const needsInvoices = section === "facturas";
+  const needsClients =
+    section === "clientes" || (needsInvoices && canManageInvoices);
+  const needsInvoiceCatalogs = needsInvoices && canManageInvoices;
+  const needsProfiles = isAdmin && section === "perfiles";
+
+  const [
+    productos,
+    clientes,
+    facturasFull,
+    perfiles,
+    formasPago,
+    estadosFactura,
+    userList,
+  ] = await Promise.all([
+    needsProducts
+      ? apiFetchJson<Producto[]>("/productos")
+      : Promise.resolve([] as Producto[]),
+    needsClients
+      ? apiFetchJson<Cliente[]>("/clientes")
+      : Promise.resolve([] as Cliente[]),
+    needsInvoices
+      ? apiFetchJson<Factura[]>("/facturas")
+      : Promise.resolve([] as Factura[]),
+    needsProfiles
+      ? apiFetchJson<Perfil[]>("/perfiles")
+      : Promise.resolve([] as Perfil[]),
+    needsInvoiceCatalogs
+      ? apiFetchJson<FormaPago[]>("/formaspago")
+      : Promise.resolve([] as FormaPago[]),
+    needsInvoiceCatalogs
+      ? apiFetchJson<EstadoFactura[]>("/estadosfacturas")
+      : Promise.resolve([] as EstadoFactura[]),
+    needsUsers
+      ? auth.api.listUsers({
+          query: {
+            limit: 100,
+            sortBy: "createdAt",
+            sortDirection: "desc",
+          },
+          headers: requestHeaders,
+        })
+      : Promise.resolve({ users: [], total: 0 }),
+  ]);
 
   const users: ManagedUser[] = userList.users.map((user) => ({
     id: user.id,
@@ -121,26 +174,6 @@ export default async function DashboardPage({
     role: normalizeUserRole(user.role),
     createdAt: new Date(user.createdAt).toISOString(),
   }));
-
-  const [
-    productos,
-    clientes,
-    facturasFull,
-    perfiles,
-    formasPago,
-    estadosFactura,
-  ] = await Promise.all([
-    isAdmin
-      ? apiFetchJson<Producto[]>("/productos")
-      : Promise.resolve([] as Producto[]),
-    apiFetchJson<Cliente[]>("/clientes"),
-    apiFetchJson<Factura[]>("/facturas"),
-    isAdmin
-      ? apiFetchJson<Perfil[]>("/perfiles")
-      : Promise.resolve([] as Perfil[]),
-    apiFetchJson<FormaPago[]>("/formaspago"),
-    apiFetchJson<EstadoFactura[]>("/estadosfacturas"),
-  ]);
 
   // Sort by id desc (API may not guarantee order)
   productos.sort((a, b) => b.id - a.id);
@@ -187,6 +220,34 @@ export default async function DashboardPage({
     (producto) => producto.cantidad <= 5,
   ).length;
 
+  const sectionCopy: Record<
+    DashboardSection,
+    { title: string; description: string }
+  > = {
+    resumen: {
+      title: "Resumen de inventario",
+      description: "Indicadores, existencias y valor actual del catálogo.",
+    },
+    clientes: {
+      title: "Gestión de clientes",
+      description: "Administra los datos utilizados para emitir facturas.",
+    },
+    facturas: {
+      title: "Facturas Luminar",
+      description: canManageInvoices
+        ? "Consulta, emite y administra las facturas de la tienda."
+        : "Consulta y descarga las facturas de la tienda.",
+    },
+    perfiles: {
+      title: "Perfiles de acceso",
+      description: "Consulta y administra los perfiles internos.",
+    },
+    usuarios: {
+      title: "Administración de usuarios",
+      description: "Controla las cuentas y sus permisos de acceso.",
+    },
+  };
+
   return (
     <TooltipProvider>
       <SidebarProvider
@@ -215,16 +276,14 @@ export default async function DashboardPage({
                     Panel de control
                   </p>
                   <h1 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-black sm:text-3xl">
-                    {isAdmin ? "Inventario Luminar" : "Facturas Luminar"}
+                    {sectionCopy[section].title}
                   </h1>
                   <p className="mt-2 text-sm text-gray-500">
-                    {isAdmin
-                      ? "Una vista clara del catálogo y las existencias de la tienda."
-                      : "Consulta y administra las facturas de la tienda."}
+                    {sectionCopy[section].description}
                   </p>
                 </div>
 
-                {isAdmin ? (
+                {section === "resumen" ? (
                   <>
                     <div className="reveal-up-delay-1">
                       <SectionCards
@@ -250,25 +309,27 @@ export default async function DashboardPage({
                   </>
                 ) : null}
 
-                <div className="reveal-up-delay-3">
-                  {section === "usuarios" ? (
-                    <UsersManagement
-                      users={users}
-                      currentUserId={session.user.id}
-                    />
-                  ) : (
-                    <DashboardManagement
-                      section={section}
-                      clientes={clientes}
-                      facturas={facturas}
-                      perfiles={perfilesConCount}
-                      formasPago={formasPago}
-                      estadosFactura={estadosFactura}
-                      isAdmin={isAdmin}
-                      canManageInvoices={canManageInvoices}
-                    />
-                  )}
-                </div>
+                {section !== "resumen" ? (
+                  <div className="reveal-up-delay-3">
+                    {section === "usuarios" ? (
+                      <UsersManagement
+                        users={users}
+                        currentUserId={session.user.id}
+                      />
+                    ) : (
+                      <DashboardManagement
+                        section={section}
+                        clientes={clientes}
+                        facturas={facturas}
+                        perfiles={perfilesConCount}
+                        formasPago={formasPago}
+                        estadosFactura={estadosFactura}
+                        isAdmin={isAdmin}
+                        canManageInvoices={canManageInvoices}
+                      />
+                    )}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>

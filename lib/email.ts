@@ -3,6 +3,7 @@ import "server-only";
 import { Resend } from "resend";
 
 let resend: Resend | null = null;
+const DEFAULT_EMAIL_FROM = "Luminar <noreply@mertmadeit.xyz>";
 
 function getResendClient() {
   if (!resend) {
@@ -16,6 +17,19 @@ function getResendClient() {
   }
 
   return resend;
+}
+
+function getEmailFrom() {
+  const configuredFrom =
+    process.env.EMAIL_FROM?.trim() ||
+    process.env.RESEND_FROM_EMAIL?.trim() ||
+    "";
+
+  if (!configuredFrom || /@(?:onboarding\.)?resend\.dev\b/i.test(configuredFrom)) {
+    return DEFAULT_EMAIL_FROM;
+  }
+
+  return configuredFrom;
 }
 
 type SendEmailOptions = {
@@ -160,7 +174,7 @@ export async function sendEmail({
   const client = getResendClient();
 
   const { error } = await client.emails.send({
-    from: process.env.EMAIL_FROM || "Luminar <onboarding@resend.dev>",
+    from: getEmailFrom(),
     to,
     subject,
     html,

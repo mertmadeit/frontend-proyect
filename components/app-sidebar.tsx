@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   CircleHelp,
   Infinity as InfinityIcon,
+  LayoutDashboard,
   ReceiptText,
   UserCog,
   UserRoundCog,
@@ -24,6 +25,11 @@ import {
 import type { UserRole } from "@/lib/roles";
 
 const management = [
+  {
+    name: "Resumen",
+    url: "/dashboard?seccion=resumen",
+    icon: <LayoutDashboard />,
+  },
   {
     name: "Clientes",
     url: "/dashboard?seccion=clientes#administracion",

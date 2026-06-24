@@ -63,10 +63,27 @@ CREATE TABLE IF NOT EXISTS `facturas` (
   `created_at` DATETIME(3) NULL,
   `updated_at` DATETIME(3) NULL,
   PRIMARY KEY (`id`),
+  KEY `facturas_numero_idx` (`numero`),
   CONSTRAINT `facturas_idCliente_fkey` FOREIGN KEY (`idCliente`) REFERENCES `clientes` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `facturas_idforma_fkey` FOREIGN KEY (`idforma`) REFERENCES `formaspago` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `facturas_idestado_fkey` FOREIGN KEY (`idestado`) REFERENCES `estadosfacturas` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+SET @facturas_numero_index_exists = (
+  SELECT COUNT(*)
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'facturas'
+    AND INDEX_NAME = 'facturas_numero_idx'
+);
+SET @facturas_numero_index_migration = IF(
+  @facturas_numero_index_exists = 0,
+  'ALTER TABLE `facturas` ADD INDEX `facturas_numero_idx` (`numero`)',
+  'SELECT 1'
+);
+PREPARE facturas_numero_index_statement FROM @facturas_numero_index_migration;
+EXECUTE facturas_numero_index_statement;
+DEALLOCATE PREPARE facturas_numero_index_statement;
 
 CREATE TABLE IF NOT EXISTS `perfiles` (
   `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
