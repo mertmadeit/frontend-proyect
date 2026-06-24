@@ -170,21 +170,6 @@ UPDATE `user`
 SET `role` = 'empleado'
 WHERE `role` IS NULL OR `role` NOT IN ('admin', 'supervisor', 'empleado');
 
--- La cuenta mas antigua se convierte en administrador solo si aun no existe uno.
-UPDATE `user`
-SET `role` = 'admin'
-WHERE `id` = (
-  SELECT `first_user`.`id`
-  FROM (
-    SELECT `id` FROM `user` ORDER BY `createdAt` ASC, `id` ASC LIMIT 1
-  ) AS `first_user`
-)
-AND NOT EXISTS (
-  SELECT 1 FROM (
-    SELECT `id` FROM `user` WHERE `role` = 'admin' LIMIT 1
-  ) AS `existing_admin`
-);
-
 CREATE TABLE IF NOT EXISTS `session` (
   `id` VARCHAR(36) NOT NULL,
   `expiresAt` TIMESTAMP(3) NOT NULL,
