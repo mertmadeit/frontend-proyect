@@ -243,6 +243,7 @@ export default async function Home() {
                 alt="Cámara profesional Sony Alpha 7 IV"
                 className="animate-luminar-float h-full max-h-80 w-full object-contain mix-blend-multiply lg:max-h-96"
                 sizes="(max-width: 1024px) 100vw, 60vw"
+                priority
               />
             </div>
 

@@ -1,15 +1,17 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
-import { ChartAreaInteractive } from "@/components/chart-area-interactive";
-import { DataTable } from "@/components/data-table";
-import { DashboardManagement } from "@/components/dashboard-management";
 import { SectionCards } from "@/components/section-cards";
 import { SiteHeader } from "@/components/site-header";
-import {
-  UsersManagement,
-  type ManagedUser,
-} from "@/components/users-management";
+import { type ManagedUser } from "@/components/users-management";
+import dynamic from "next/dynamic";
+import { Metadata } from "next";
+
+const ChartAreaInteractive = dynamic(() => import("@/components/chart-area-interactive").then(mod => mod.ChartAreaInteractive));
+const DataTable = dynamic(() => import("@/components/data-table").then(mod => mod.DataTable));
+const DashboardManagement = dynamic(() => import("@/components/dashboard-management").then(mod => mod.DashboardManagement));
+const UsersManagement = dynamic(() => import("@/components/users-management").then(mod => mod.UsersManagement));
+
 import {
   SidebarInset,
   SidebarProvider,
@@ -19,6 +21,11 @@ import { auth } from "@/lib/auth";
 import { normalizeUserRole } from "@/lib/roles";
 
 import { apiFetchJson } from "@/lib/api";
+
+export const metadata: Metadata = {
+  title: "Dashboard | Luminar",
+  description: "Panel de administración y gestión de tienda.",
+};
 
 const formatoPrecio = new Intl.NumberFormat("es-MX", {
   style: "currency",
