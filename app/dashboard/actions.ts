@@ -73,6 +73,22 @@ function failure(error: unknown, fallback: string): ActionResult {
   return { ok: false, message: fallback };
 }
 
+async function apiErrorMessage(response: Response, fallback: string) {
+  let detail = "";
+  try {
+    const payload = (await response.json()) as { error?: string; message?: string };
+    detail = payload.error ?? payload.message ?? "";
+  } catch {
+    // Algunas respuestas del backend no incluyen JSON.
+  }
+
+  if (detail) return detail;
+  if (response.status === 404) return "El cliente ya no existe. Actualiza la página.";
+  if (response.status === 409) return "El correo ya está siendo utilizado.";
+  if (response.status === 403) return "No tienes permiso para modificar clientes.";
+  return fallback;
+}
+
 function productFrom(formData: FormData) {
   return {
     nombre: requiredText(formData, "nombre"),
@@ -243,14 +259,18 @@ export async function guardarCliente(formData: FormData): Promise<ActionResult> 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(`Error ${res.status}`);
+      if (!res.ok) {
+        return { ok: false, message: await apiErrorMessage(res, "No fue posible actualizar el cliente.") };
+      }
     } else {
       const res = await apiFetchForRole(`/clientes`, session.user.role, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(`Error ${res.status}`);
+      if (!res.ok) {
+        return { ok: false, message: await apiErrorMessage(res, "No fue posible agregar el cliente.") };
+      }
     }
 
     revalidatePath("/dashboard");
