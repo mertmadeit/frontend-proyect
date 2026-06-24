@@ -120,8 +120,8 @@ export default async function DashboardPage({
 
   const needsUsers =
     isAdmin && (section === "usuarios" || section === "perfiles");
-  const needsProducts = isAdmin && section === "resumen";
   const needsInvoices = section === "facturas";
+  const needsProducts = (isAdmin && section === "resumen") || (needsInvoices && canManageInvoices);
   const needsClients =
     section === "clientes" || (needsInvoices && canManageInvoices);
   const needsInvoiceCatalogs = needsInvoices && canManageInvoices;
@@ -319,6 +319,7 @@ export default async function DashboardPage({
                       <DashboardManagement
                         section={section}
                         clientes={clientes}
+                        productos={productos}
                         facturas={facturas}
                         perfiles={perfilesConCount}
                         formasPago={formasPago}

@@ -64,6 +64,13 @@ export type FacturaDashboard = {
   estadoFactura: { estado: string };
 };
 
+export type ProductoDashboard = {
+  id: number;
+  nombre: string;
+  precio: number;
+  cantidad: number;
+};
+
 export type PerfilDashboard = {
   id: number;
   nombre: string;
@@ -88,6 +95,7 @@ const tabs: { id: Section; label: string }[] = [
 export function DashboardManagement({
   section,
   clientes,
+  productos,
   facturas,
   perfiles,
   formasPago,
@@ -97,6 +105,7 @@ export function DashboardManagement({
 }: {
   section: Section;
   clientes: ClienteDashboard[];
+  productos?: ProductoDashboard[];
   facturas: FacturaDashboard[];
   perfiles: PerfilDashboard[];
   formasPago: Option[];
@@ -136,6 +145,7 @@ export function DashboardManagement({
         <FacturasCrud
           data={facturas}
           clientes={clientes}
+          productos={productos || []}
           formasPago={formasPago}
           estadosFactura={estadosFactura}
           canManage={canManageInvoices}
@@ -293,12 +303,14 @@ function ClientesCrud({ data }: { data: ClienteDashboard[] }) {
 function FacturasCrud({
   data,
   clientes,
+  productos,
   formasPago,
   estadosFactura,
   canManage,
 }: {
   data: FacturaDashboard[];
   clientes: ClienteDashboard[];
+  productos: ProductoDashboard[];
   formasPago: Option[];
   estadosFactura: StatusOption[];
   canManage: boolean;
@@ -310,6 +322,8 @@ function FacturasCrud({
   const [feedback, setFeedback] = useState("");
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [valor, setValor] = useState<number>(0);
+  const [detalles, setDetalles] = useState<string>("");
   const canCreate =
     canManage &&
     clientes.length > 0 &&
@@ -325,6 +339,8 @@ function FacturasCrud({
   function openForm(factura?: FacturaDashboard) {
     setEditing(factura ?? null);
     setMessage("");
+    setValor(factura?.valor ?? 0);
+    setDetalles(factura?.detalles ?? "");
     setOpen(true);
   }
 
@@ -451,13 +467,19 @@ function FacturasCrud({
                   ? `Folio #${editing.numero}`
                   : "El folio se generará automáticamente al guardar."}
               </div>
-              <Field
-                label="Total (MXN)"
-                name="valor"
-                type="number"
-                min="1"
-                defaultValue={editing?.valor}
-              />
+              
+              <div className="grid gap-2">
+                <Label htmlFor="valor">Total (MXN)</Label>
+                <Input
+                  id="valor"
+                  name="valor"
+                  type="number"
+                  min="1"
+                  value={valor || ""}
+                  onChange={(e) => setValor(Number(e.target.value))}
+                  required
+                />
+              </div>
               <SelectField
                 label="Cliente"
                 name="idCliente"
@@ -485,12 +507,68 @@ function FacturasCrud({
                   label: estado.estado,
                 }))}
               />
+              <div className="grid gap-2 sm:col-span-2 rounded-lg border border-gray-200 bg-gray-50/50 p-4">
+                <Label className="text-base font-semibold">Selector de Productos</Label>
+                <p className="text-sm text-gray-500 mb-2">
+                  Añade productos a la factura para calcular automáticamente el total y generar los detalles.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <select
+                    id="temp_producto"
+                    className="flex-1 h-10 rounded-md border border-input bg-background px-3 text-sm ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Selecciona un producto</option>
+                    {productos.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre} ({formatoPrecio.format(p.precio)} - {p.cantidad} en stock)
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <Input 
+                      type="number" 
+                      id="temp_cantidad" 
+                      defaultValue={1} 
+                      min={1} 
+                      className="w-24 bg-white" 
+                      aria-label="Cantidad"
+                    />
+                    <Button 
+                      type="button" 
+                      variant="secondary"
+                      onClick={() => {
+                        const select = document.getElementById("temp_producto") as HTMLSelectElement;
+                        const qtyInput = document.getElementById("temp_cantidad") as HTMLInputElement;
+                        if (!select || !qtyInput) return;
+                        
+                        const prodId = Number(select.value);
+                        const qty = Number(qtyInput.value);
+                        const prod = productos.find(p => p.id === prodId);
+                        
+                        if (prod && qty > 0) {
+                          const subtotal = prod.precio * qty;
+                          setValor(prev => prev + subtotal);
+                          setDetalles(prev => prev + (prev ? "\n" : "") + `${qty}x ${prod.nombre} - ${formatoPrecio.format(subtotal)}`);
+                          qtyInput.value = "1";
+                          select.value = "";
+                        }
+                      }}
+                    >
+                      <Plus className="mr-1 size-4" />
+                      Añadir
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid gap-2 sm:col-span-2">
-                <Label htmlFor="detalles">Detalles</Label>
+                <Label htmlFor="detalles">Detalles de la Factura</Label>
                 <textarea
                   id="detalles"
                   name="detalles"
-                  defaultValue={editing?.detalles}
+                  value={detalles}
+                  onChange={(e) => setDetalles(e.target.value)}
                   className="min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 transition-colors"
                   required
                 />
