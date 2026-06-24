@@ -116,9 +116,6 @@ CREATE TABLE IF NOT EXISTS `user` (
   `banned` TINYINT(1) NOT NULL DEFAULT 0,
   `banReason` TEXT NULL,
   `banExpires` DATETIME(3) NULL,
-  `rfc` VARCHAR(191) NULL,
-  `direccion` VARCHAR(191) NULL,
-  `telefono` VARCHAR(191) NULL,
   `image` TEXT,
   `createdAt` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updatedAt` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -455,6 +452,141 @@ DEALLOCATE PREPARE add_new_cliente_fk_statement;
 DROP TABLE IF EXISTS `clientes`;
 DROP TABLE IF EXISTS `users`;
 
+-- Estado final: autenticación en `user` y datos comerciales en `clientes`.
+-- Este bloque también revierte instalaciones que alcanzaron a unificar ambas tablas.
+CREATE TABLE IF NOT EXISTS `clientes` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
+  `nombre` VARCHAR(191) NOT NULL,
+  `rfc` VARCHAR(191) NOT NULL,
+  `direccion` VARCHAR(191) NOT NULL,
+  `telefono` VARCHAR(191) NOT NULL,
+  `email` VARCHAR(191) NOT NULL,
+  `created_at` DATETIME(3) NULL,
+  `updated_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `clientes_email_key` (`email`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+INSERT INTO `clientes` (
+  `nombre`, `rfc`, `direccion`, `telefono`, `email`, `created_at`, `updated_at`
+)
+SELECT
+  usuario.`name`, usuario.`rfc`, usuario.`direccion`, usuario.`telefono`,
+  usuario.`email`, usuario.`createdAt`, usuario.`updatedAt`
+FROM `user` AS usuario
+WHERE usuario.`rfc` IS NOT NULL
+  AND usuario.`direccion` IS NOT NULL
+  AND usuario.`telefono` IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM `clientes` AS cliente
+    WHERE CONVERT(LOWER(cliente.`email`) USING utf8mb4) =
+          CONVERT(LOWER(usuario.`email`) USING utf8mb4) COLLATE utf8mb4_unicode_ci
+  );
+
+SET @facturas_usuario_type = (
+  SELECT DATA_TYPE
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'facturas'
+    AND COLUMN_NAME = 'idCliente'
+  LIMIT 1
+);
+
+SET @add_factura_cliente = IF(
+  @facturas_usuario_type IN ('char', 'varchar', 'text'),
+  'ALTER TABLE `facturas` ADD COLUMN `idClienteNuevo` INTEGER UNSIGNED NULL AFTER `archivo`',
+  'SELECT 1'
+);
+PREPARE add_factura_cliente_statement FROM @add_factura_cliente;
+EXECUTE add_factura_cliente_statement;
+DEALLOCATE PREPARE add_factura_cliente_statement;
+
+SET @link_factura_cliente = IF(
+  @facturas_usuario_type IN ('char', 'varchar', 'text'),
+  'UPDATE `facturas` AS factura JOIN `user` AS usuario ON usuario.`id` = factura.`idCliente` JOIN `clientes` AS cliente ON CONVERT(LOWER(cliente.`email`) USING utf8mb4) = CONVERT(LOWER(usuario.`email`) USING utf8mb4) COLLATE utf8mb4_unicode_ci SET factura.`idClienteNuevo` = cliente.`id`',
+  'SELECT 1'
+);
+PREPARE link_factura_cliente_statement FROM @link_factura_cliente;
+EXECUTE link_factura_cliente_statement;
+DEALLOCATE PREPARE link_factura_cliente_statement;
+
+SET @count_unlinked_clients = IF(
+  @facturas_usuario_type IN ('char', 'varchar', 'text'),
+  'SELECT COUNT(*) INTO @unlinked_clients FROM `facturas` WHERE `idClienteNuevo` IS NULL',
+  'SET @unlinked_clients = 0'
+);
+PREPARE count_unlinked_clients_statement FROM @count_unlinked_clients;
+EXECUTE count_unlinked_clients_statement;
+DEALLOCATE PREPARE count_unlinked_clients_statement;
+
+SET @validate_client_links = IF(
+  @unlinked_clients > 0,
+  'SIGNAL SQLSTATE ''45000'' SET MESSAGE_TEXT = ''No se pudieron separar todas las facturas de sus clientes''',
+  'SELECT 1'
+);
+PREPARE validate_client_links_statement FROM @validate_client_links;
+EXECUTE validate_client_links_statement;
+DEALLOCATE PREPARE validate_client_links_statement;
+
+SET @usuario_fk_exists = (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE CONSTRAINT_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'facturas'
+    AND CONSTRAINT_NAME = 'facturas_idUsuario_fkey'
+    AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+);
+SET @drop_usuario_fk = IF(
+  @usuario_fk_exists > 0,
+  'ALTER TABLE `facturas` DROP FOREIGN KEY `facturas_idUsuario_fkey`',
+  'SELECT 1'
+);
+PREPARE drop_usuario_fk_statement FROM @drop_usuario_fk;
+EXECUTE drop_usuario_fk_statement;
+DEALLOCATE PREPARE drop_usuario_fk_statement;
+
+SET @replace_factura_usuario = IF(
+  @facturas_usuario_type IN ('char', 'varchar', 'text'),
+  'ALTER TABLE `facturas` DROP COLUMN `idCliente`, CHANGE COLUMN `idClienteNuevo` `idCliente` INTEGER UNSIGNED NOT NULL',
+  'SELECT 1'
+);
+PREPARE replace_factura_usuario_statement FROM @replace_factura_usuario;
+EXECUTE replace_factura_usuario_statement;
+DEALLOCATE PREPARE replace_factura_usuario_statement;
+
+SET @cliente_fk_exists = (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE CONSTRAINT_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'facturas'
+    AND CONSTRAINT_NAME = 'facturas_idCliente_fkey'
+    AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+);
+SET @restore_cliente_fk = IF(
+  @cliente_fk_exists = 0,
+  'ALTER TABLE `facturas` ADD CONSTRAINT `facturas_idCliente_fkey` FOREIGN KEY (`idCliente`) REFERENCES `clientes` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE',
+  'SELECT 1'
+);
+PREPARE restore_cliente_fk_statement FROM @restore_cliente_fk;
+EXECUTE restore_cliente_fk_statement;
+DEALLOCATE PREPARE restore_cliente_fk_statement;
+
+DELETE FROM `user` WHERE `role` = 'cliente';
+
+SET @drop_customer_columns = IF(
+  EXISTS (
+    SELECT 1 FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user' AND COLUMN_NAME = 'rfc'
+  ),
+  'ALTER TABLE `user` DROP COLUMN `rfc`, DROP COLUMN `direccion`, DROP COLUMN `telefono`',
+  'SELECT 1'
+);
+PREPARE drop_customer_columns_statement FROM @drop_customer_columns;
+EXECUTE drop_customer_columns_statement;
+DEALLOCATE PREPARE drop_customer_columns_statement;
+
+UPDATE `user`
+SET `role` = 'empleado'
+WHERE `role` IS NULL OR `role` NOT IN ('admin', 'supervisor', 'empleado');
+
 -- Datos de prueba idempotentes para el dashboard.
 START TRANSACTION;
 
@@ -482,29 +614,17 @@ INSERT INTO `pedidos` (`nombre`, `precio`, `cantidad`, `created_at`, `updated_at
 SELECT 'Rode Wireless GO II', 6999, 2, NOW(3), NOW(3)
 WHERE NOT EXISTS (SELECT 1 FROM `pedidos` WHERE `nombre` = 'Rode Wireless GO II');
 
-INSERT INTO `user` (
-  `id`, `name`, `email`, `emailVerified`, `role`, `banned`,
-  `rfc`, `direccion`, `telefono`, `createdAt`, `updatedAt`
-)
-SELECT UUID(), 'Mariana Lopez', 'mariana.lopez@example.test', 0, 'cliente', 0,
-  'LOPM900101T01', 'Av. Reforma 120, CDMX', '5512345678', NOW(3), NOW(3)
-WHERE NOT EXISTS (SELECT 1 FROM `user` WHERE `email` = 'mariana.lopez@example.test');
+INSERT INTO `clientes` (`nombre`, `rfc`, `direccion`, `telefono`, `email`, `created_at`, `updated_at`)
+SELECT 'Mariana Lopez', 'LOPM900101T01', 'Av. Reforma 120, CDMX', '5512345678', 'mariana.lopez@example.test', NOW(3), NOW(3)
+WHERE NOT EXISTS (SELECT 1 FROM `clientes` WHERE `email` = 'mariana.lopez@example.test');
 
-INSERT INTO `user` (
-  `id`, `name`, `email`, `emailVerified`, `role`, `banned`,
-  `rfc`, `direccion`, `telefono`, `createdAt`, `updatedAt`
-)
-SELECT UUID(), 'Estudio Norte', 'contacto@estudionorte.test', 0, 'cliente', 0,
-  'ENO210315AB2', 'Calz. Independencia 450, Guadalajara', '3312345678', NOW(3), NOW(3)
-WHERE NOT EXISTS (SELECT 1 FROM `user` WHERE `email` = 'contacto@estudionorte.test');
+INSERT INTO `clientes` (`nombre`, `rfc`, `direccion`, `telefono`, `email`, `created_at`, `updated_at`)
+SELECT 'Estudio Norte', 'ENO210315AB2', 'Calz. Independencia 450, Guadalajara', '3312345678', 'contacto@estudionorte.test', NOW(3), NOW(3)
+WHERE NOT EXISTS (SELECT 1 FROM `clientes` WHERE `email` = 'contacto@estudionorte.test');
 
-INSERT INTO `user` (
-  `id`, `name`, `email`, `emailVerified`, `role`, `banned`,
-  `rfc`, `direccion`, `telefono`, `createdAt`, `updatedAt`
-)
-SELECT UUID(), 'Carlos Hernandez', 'carlos.hernandez@example.test', 0, 'cliente', 0,
-  'HEGC880812QK4', 'Av. Universidad 88, Monterrey', '8112345678', NOW(3), NOW(3)
-WHERE NOT EXISTS (SELECT 1 FROM `user` WHERE `email` = 'carlos.hernandez@example.test');
+INSERT INTO `clientes` (`nombre`, `rfc`, `direccion`, `telefono`, `email`, `created_at`, `updated_at`)
+SELECT 'Carlos Hernandez', 'HEGC880812QK4', 'Av. Universidad 88, Monterrey', '8112345678', 'carlos.hernandez@example.test', NOW(3), NOW(3)
+WHERE NOT EXISTS (SELECT 1 FROM `clientes` WHERE `email` = 'carlos.hernandez@example.test');
 
 INSERT INTO `formaspago` (`nombre`)
 SELECT 'Tarjeta'
@@ -555,10 +675,10 @@ SELECT
   estado.id,
   NOW(3),
   NOW(3)
-FROM `user` AS cliente
+FROM `clientes` AS cliente
 JOIN `formaspago` AS forma ON forma.nombre = 'Tarjeta'
 JOIN `estadosfacturas` AS estado ON estado.estado = 'Pagada'
-WHERE cliente.email = 'mariana.lopez@example.test' AND cliente.rfc IS NOT NULL
+WHERE cliente.email = 'mariana.lopez@example.test'
   AND NOT EXISTS (SELECT 1 FROM `facturas` WHERE `numero` = 1001)
 LIMIT 1;
 
@@ -575,10 +695,10 @@ SELECT
   estado.id,
   NOW(3),
   NOW(3)
-FROM `user` AS cliente
+FROM `clientes` AS cliente
 JOIN `formaspago` AS forma ON forma.nombre = 'Transferencia'
 JOIN `estadosfacturas` AS estado ON estado.estado = 'Pendiente'
-WHERE cliente.email = 'contacto@estudionorte.test' AND cliente.rfc IS NOT NULL
+WHERE cliente.email = 'contacto@estudionorte.test'
   AND NOT EXISTS (SELECT 1 FROM `facturas` WHERE `numero` = 1002)
 LIMIT 1;
 

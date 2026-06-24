@@ -43,7 +43,7 @@ import { cn } from "@/lib/utils";
 type Section = "clientes" | "facturas" | "perfiles";
 
 export type ClienteDashboard = {
-  id: string;
+  id: number;
   nombre: string;
   rfc: string;
   direccion: string;
@@ -56,7 +56,7 @@ export type FacturaDashboard = {
   numero: number;
   detalles: string;
   valor: number;
-  idCliente: string;
+  idCliente: number;
   idforma: number;
   idestado: number;
   cliente: { nombre: string };
@@ -80,6 +80,7 @@ const formatoPrecio = new Intl.NumberFormat("es-MX", {
 });
 
 const tabs: { id: Section; label: string }[] = [
+  { id: "clientes", label: "Clientes" },
   { id: "facturas", label: "Facturas" },
   { id: "perfiles", label: "Perfiles" },
 ];

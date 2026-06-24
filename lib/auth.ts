@@ -47,7 +47,6 @@ export const auth = betterAuth({
         admin: adminRole,
         supervisor: internalRole,
         empleado: internalRole,
-        cliente: internalRole,
       },
     }),
   ],

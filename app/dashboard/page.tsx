@@ -36,7 +36,7 @@ type Producto = {
 };
 
 type Cliente = {
-  id: string;
+  id: number;
   nombre: string;
   rfc: string;
   direccion: string;
@@ -49,7 +49,7 @@ type Factura = {
   numero: number;
   detalles: string;
   valor: number;
-  idCliente: string;
+  idCliente: number;
   idforma: number;
   idestado: number;
   cliente: { nombre: string };
@@ -74,12 +74,14 @@ type EstadoFactura = {
 
 type DashboardSection =
   | "resumen"
+  | "clientes"
   | "facturas"
   | "perfiles"
   | "usuarios";
 
 const ADMIN_SECTIONS = new Set<DashboardSection>([
   "resumen",
+  "clientes",
   "facturas",
   "perfiles",
   "usuarios",
@@ -97,10 +99,6 @@ export default async function DashboardPage({
 
   if (!session) {
     redirect("/login");
-  }
-
-  if (session.user.role === "cliente") {
-    redirect("/");
   }
 
   const role = normalizeUserRole(session.user.role);
@@ -125,7 +123,7 @@ export default async function DashboardPage({
   const needsProducts = isAdmin && section === "resumen";
   const needsInvoices = section === "facturas";
   const needsClients =
-    section === "usuarios" || (needsInvoices && canManageInvoices);
+    section === "clientes" || (needsInvoices && canManageInvoices);
   const needsInvoiceCatalogs = needsInvoices && canManageInvoices;
   const needsProfiles = isAdmin && section === "perfiles";
 
@@ -168,21 +166,14 @@ export default async function DashboardPage({
       : Promise.resolve({ users: [], total: 0 }),
   ]);
 
-  const clientesPorId = new Map(clientes.map((cliente) => [cliente.id, cliente]));
-  const users: ManagedUser[] = userList.users.map((user) => {
-    const cliente = clientesPorId.get(user.id);
-    return {
+  const users: ManagedUser[] = userList.users.map((user) => ({
       id: user.id,
       name: user.name,
       email: user.email,
       emailVerified: user.emailVerified,
-      role: user.role === "cliente" ? "cliente" : normalizeUserRole(user.role),
-      rfc: cliente?.rfc ?? null,
-      direccion: cliente?.direccion ?? null,
-      telefono: cliente?.telefono ?? null,
+      role: normalizeUserRole(user.role),
       createdAt: new Date(user.createdAt).toISOString(),
-    };
-  });
+    }));
 
   // Sort by id desc (API may not guarantee order)
   productos.sort((a, b) => b.id - a.id);
@@ -236,6 +227,10 @@ export default async function DashboardPage({
       title: "Resumen de inventario",
       description: "Indicadores, existencias y valor actual del catálogo.",
     },
+    clientes: {
+      title: "Gestión de clientes",
+      description: "Administra los datos utilizados para emitir facturas.",
+    },
     facturas: {
       title: "Facturas Luminar",
       description: canManageInvoices
@@ -248,7 +243,7 @@ export default async function DashboardPage({
     },
     usuarios: {
       title: "Administración de usuarios",
-      description: "Administra en una sola tabla las cuentas internas y los clientes.",
+      description: "Controla las cuentas y sus permisos de acceso.",
     },
   };
 

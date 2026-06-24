@@ -51,11 +51,6 @@ function optionalId(formData: FormData) {
   return Number.isInteger(value) && value > 0 ? value : undefined;
 }
 
-function optionalStringId(formData: FormData) {
-  const value = requiredText(formData, "id");
-  return value || undefined;
-}
-
 function failure(error: unknown, fallback: string): ActionResult {
   console.error(error);
   const message =
@@ -239,7 +234,7 @@ export async function actualizarProducto(formData: FormData) {
 export async function guardarCliente(formData: FormData): Promise<ActionResult> {
   const session = await requireSession(["admin"]);
 
-  const id = optionalStringId(formData);
+  const id = optionalId(formData);
   const nombre = requiredText(formData, "nombre");
   const rfc = requiredText(formData, "rfc").toUpperCase();
   const direccion = requiredText(formData, "direccion");
@@ -280,7 +275,7 @@ export async function guardarCliente(formData: FormData): Promise<ActionResult> 
   }
 }
 
-export async function eliminarCliente(id: string): Promise<ActionResult> {
+export async function eliminarCliente(id: number): Promise<ActionResult> {
   const session = await requireSession(["admin"]);
 
   try {
@@ -301,7 +296,7 @@ export async function guardarFactura(formData: FormData): Promise<ActionResult> 
   const id = optionalId(formData);
   const numero = positiveInteger(formData, "numero");
   const valor = positiveInteger(formData, "valor");
-  const idCliente = requiredText(formData, "idCliente");
+  const idCliente = positiveInteger(formData, "idCliente");
   const idforma = positiveInteger(formData, "idforma");
   const idestado = positiveInteger(formData, "idestado");
   const detalles = requiredText(formData, "detalles");
