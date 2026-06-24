@@ -80,7 +80,6 @@ const formatoPrecio = new Intl.NumberFormat("es-MX", {
 });
 
 const tabs: { id: Section; label: string }[] = [
-  { id: "clientes", label: "Clientes" },
   { id: "facturas", label: "Facturas" },
   { id: "perfiles", label: "Perfiles" },
 ];

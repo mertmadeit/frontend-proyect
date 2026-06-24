@@ -8,7 +8,6 @@ import {
   ReceiptText,
   UserCog,
   UserRoundCog,
-  Users,
 } from "lucide-react";
 import { NavDocuments } from "@/components/nav-documents";
 import { NavSecondary } from "@/components/nav-secondary";
@@ -29,11 +28,6 @@ const management = [
     name: "Resumen",
     url: "/dashboard?seccion=resumen",
     icon: <LayoutDashboard />,
-  },
-  {
-    name: "Clientes",
-    url: "/dashboard?seccion=clientes#administracion",
-    icon: <Users />,
   },
   {
     name: "Facturas",

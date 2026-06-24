@@ -4,7 +4,9 @@ import { FormEvent, useState, useTransition } from "react";
 import { Pencil, Plus, Search, ShieldCheck, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
+  eliminarCliente,
   eliminarUsuario,
+  guardarCliente,
   guardarUsuario,
 } from "@/app/dashboard/actions";
 import { Badge } from "@/components/ui/badge";
@@ -39,9 +41,16 @@ export type ManagedUser = {
   name: string;
   email: string;
   emailVerified: boolean;
-  role: UserRole;
+  role: UserRole | "cliente";
+  rfc: string | null;
+  direccion: string | null;
+  telefono: string | null;
   createdAt: string;
 };
+
+function roleLabel(role: ManagedUser["role"]) {
+  return role === "cliente" ? "Cliente" : getUserRoleLabel(role);
+}
 
 const dateFormatter = new Intl.DateTimeFormat("es-MX", {
   dateStyle: "medium",
@@ -60,6 +69,8 @@ export function UsersManagement({
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [selectedRole, setSelectedRole] =
+    useState<ManagedUser["role"]>("empleado");
   const [isPending, startTransition] = useTransition();
 
   const normalizedSearch = search.toLowerCase();
@@ -67,11 +78,13 @@ export function UsersManagement({
     (user) =>
       user.name.toLowerCase().includes(normalizedSearch) ||
       user.email.toLowerCase().includes(normalizedSearch) ||
-      getUserRoleLabel(user.role).toLowerCase().includes(normalizedSearch),
+      roleLabel(user.role).toLowerCase().includes(normalizedSearch) ||
+      Boolean(user.rfc?.toLowerCase().includes(normalizedSearch)),
   );
 
   function openForm(user?: ManagedUser) {
     setEditing(user ?? null);
+    setSelectedRole(user?.role ?? "empleado");
     setMessage("");
     setOpen(true);
   }
@@ -82,7 +95,13 @@ export function UsersManagement({
     if (editing) formData.set("id", editing.id);
 
     startTransition(async () => {
-      const result = await guardarUsuario(formData);
+      const isClient = formData.get("role") === "cliente";
+      if (isClient) {
+        formData.set("nombre", String(formData.get("name") ?? ""));
+      }
+      const result = isClient
+        ? await guardarCliente(formData)
+        : await guardarUsuario(formData);
       if (result.ok) {
         setOpen(false);
         setFeedback(result.message);
@@ -97,7 +116,9 @@ export function UsersManagement({
     if (!window.confirm(`¿Eliminar la cuenta de ${user.name}?`)) return;
 
     startTransition(async () => {
-      const result = await eliminarUsuario(user.id);
+      const result = user.role === "cliente"
+        ? await eliminarCliente(user.id)
+        : await eliminarUsuario(user.id);
       setFeedback(result.message);
       if (result.ok) router.refresh();
     });
@@ -107,9 +128,9 @@ export function UsersManagement({
     <Card id="administracion" className="mx-4 border-gray-200/60 bg-white/50 shadow-xs backdrop-blur-sm lg:mx-6">
       <CardHeader className="flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <CardTitle className="text-xl">Usuarios internos</CardTitle>
+          <CardTitle className="text-xl">Usuarios</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            Crea cuentas y controla el acceso de administradores, supervisores y empleados.
+            Cuentas internas y clientes reunidos en una sola tabla.
           </p>
         </div>
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
@@ -140,7 +161,7 @@ export function UsersManagement({
             <TableHeader className="bg-gray-50/80">
               <TableRow>
                 <TableHead>Usuario</TableHead>
-                <TableHead>Rol</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Alta</TableHead>
                 <TableHead className="w-24" />
@@ -161,13 +182,15 @@ export function UsersManagement({
                       </TableCell>
                       <TableCell>
                         <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                          {getUserRoleLabel(user.role)}
+                          {roleLabel(user.role)}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <span className="inline-flex items-center gap-1.5 text-sm text-gray-600">
                           <ShieldCheck className="size-4 text-emerald-600" />
-                          {user.emailVerified ? "Verificado" : "Pendiente"}
+                          {user.role === "cliente"
+                            ? "Cliente registrado"
+                            : user.emailVerified ? "Verificado" : "Pendiente"}
                         </span>
                       </TableCell>
                       <TableCell className="text-sm text-gray-500">
@@ -218,7 +241,7 @@ export function UsersManagement({
                 {editing ? "Editar usuario" : "Agregar usuario"}
               </DialogTitle>
               <DialogDescription>
-                El administrador puede cambiar datos, rol y contraseña.
+                Administra los datos y el tipo de usuario desde un solo lugar.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-6 sm:grid-cols-2">
@@ -237,34 +260,75 @@ export function UsersManagement({
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="user-role">Rol</Label>
+                <Label htmlFor="user-role">Tipo</Label>
                 <select
                   id="user-role"
                   name="role"
                   defaultValue={editing?.role ?? "empleado"}
+                  onChange={(event) =>
+                    setSelectedRole(event.target.value as ManagedUser["role"])
+                  }
                   className="h-10 rounded-md border border-input bg-transparent px-3 text-sm"
                   required
                 >
-                  {USER_ROLES.map((role) => (
+                  {(editing?.role === "cliente"
+                    ? (["cliente"] as const)
+                    : editing
+                      ? USER_ROLES
+                      : ([...USER_ROLES, "cliente"] as const)
+                  ).map((role) => (
                     <option key={role} value={role}>
-                      {getUserRoleLabel(role)}
+                      {roleLabel(role)}
                     </option>
                   ))}
                 </select>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="user-password">
-                  {editing ? "Nueva contraseña" : "Contraseña"}
-                </Label>
-                <Input
-                  id="user-password"
-                  name="password"
-                  type="password"
-                  minLength={8}
-                  required={!editing}
-                  placeholder={editing ? "Dejar igual" : "Mínimo 8 caracteres"}
-                />
-              </div>
+              {selectedRole === "cliente" ? (
+                <>
+                  <div className="grid gap-2">
+                    <Label htmlFor="user-rfc">RFC</Label>
+                    <Input
+                      id="user-rfc"
+                      name="rfc"
+                      defaultValue={editing?.rfc ?? ""}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="user-phone">Teléfono</Label>
+                    <Input
+                      id="user-phone"
+                      name="telefono"
+                      type="tel"
+                      defaultValue={editing?.telefono ?? ""}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2 sm:col-span-2">
+                    <Label htmlFor="user-address">Dirección</Label>
+                    <Input
+                      id="user-address"
+                      name="direccion"
+                      defaultValue={editing?.direccion ?? ""}
+                      required
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="grid gap-2">
+                  <Label htmlFor="user-password">
+                    {editing ? "Nueva contraseña" : "Contraseña"}
+                  </Label>
+                  <Input
+                    id="user-password"
+                    name="password"
+                    type="password"
+                    minLength={8}
+                    required={!editing}
+                    placeholder={editing ? "Dejar igual" : "Mínimo 8 caracteres"}
+                  />
+                </div>
+              )}
             </div>
             {message ? (
               <p role="alert" className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">

@@ -74,14 +74,12 @@ type EstadoFactura = {
 
 type DashboardSection =
   | "resumen"
-  | "clientes"
   | "facturas"
   | "perfiles"
   | "usuarios";
 
 const ADMIN_SECTIONS = new Set<DashboardSection>([
   "resumen",
-  "clientes",
   "facturas",
   "perfiles",
   "usuarios",
@@ -127,7 +125,7 @@ export default async function DashboardPage({
   const needsProducts = isAdmin && section === "resumen";
   const needsInvoices = section === "facturas";
   const needsClients =
-    section === "clientes" || (needsInvoices && canManageInvoices);
+    section === "usuarios" || (needsInvoices && canManageInvoices);
   const needsInvoiceCatalogs = needsInvoices && canManageInvoices;
   const needsProfiles = isAdmin && section === "perfiles";
 
@@ -170,16 +168,21 @@ export default async function DashboardPage({
       : Promise.resolve({ users: [], total: 0 }),
   ]);
 
-  const users: ManagedUser[] = userList.users
-    .filter((user) => user.role !== "cliente")
-    .map((user) => ({
+  const clientesPorId = new Map(clientes.map((cliente) => [cliente.id, cliente]));
+  const users: ManagedUser[] = userList.users.map((user) => {
+    const cliente = clientesPorId.get(user.id);
+    return {
       id: user.id,
       name: user.name,
       email: user.email,
       emailVerified: user.emailVerified,
-      role: normalizeUserRole(user.role),
+      role: user.role === "cliente" ? "cliente" : normalizeUserRole(user.role),
+      rfc: cliente?.rfc ?? null,
+      direccion: cliente?.direccion ?? null,
+      telefono: cliente?.telefono ?? null,
       createdAt: new Date(user.createdAt).toISOString(),
-    }));
+    };
+  });
 
   // Sort by id desc (API may not guarantee order)
   productos.sort((a, b) => b.id - a.id);
@@ -233,10 +236,6 @@ export default async function DashboardPage({
       title: "Resumen de inventario",
       description: "Indicadores, existencias y valor actual del catálogo.",
     },
-    clientes: {
-      title: "Gestión de clientes",
-      description: "Administra los datos utilizados para emitir facturas.",
-    },
     facturas: {
       title: "Facturas Luminar",
       description: canManageInvoices
@@ -249,7 +248,7 @@ export default async function DashboardPage({
     },
     usuarios: {
       title: "Administración de usuarios",
-      description: "Controla las cuentas y sus permisos de acceso.",
+      description: "Administra en una sola tabla las cuentas internas y los clientes.",
     },
   };
 
