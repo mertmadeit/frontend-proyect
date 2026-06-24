@@ -43,7 +43,7 @@ import { cn } from "@/lib/utils";
 type Section = "clientes" | "facturas" | "perfiles";
 
 export type ClienteDashboard = {
-  id: number;
+  id: string;
   nombre: string;
   rfc: string;
   direccion: string;
@@ -56,7 +56,7 @@ export type FacturaDashboard = {
   numero: number;
   detalles: string;
   valor: number;
-  idCliente: number;
+  idCliente: string;
   idforma: number;
   idestado: number;
   cliente: { nombre: string };
@@ -825,8 +825,8 @@ function SelectField({
 }: {
   label: string;
   name: string;
-  defaultValue?: number;
-  options: { value: number; label: string }[];
+  defaultValue?: string | number;
+  options: { value: string | number; label: string }[];
 }) {
   return (
     <div className="grid gap-2">

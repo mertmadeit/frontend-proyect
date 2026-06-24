@@ -36,7 +36,7 @@ type Producto = {
 };
 
 type Cliente = {
-  id: number;
+  id: string;
   nombre: string;
   rfc: string;
   direccion: string;
@@ -49,7 +49,7 @@ type Factura = {
   numero: number;
   detalles: string;
   valor: number;
-  idCliente: number;
+  idCliente: string;
   idforma: number;
   idestado: number;
   cliente: { nombre: string };
@@ -99,6 +99,10 @@ export default async function DashboardPage({
 
   if (!session) {
     redirect("/login");
+  }
+
+  if (session.user.role === "cliente") {
+    redirect("/");
   }
 
   const role = normalizeUserRole(session.user.role);
@@ -166,18 +170,19 @@ export default async function DashboardPage({
       : Promise.resolve({ users: [], total: 0 }),
   ]);
 
-  const users: ManagedUser[] = userList.users.map((user) => ({
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    emailVerified: user.emailVerified,
-    role: normalizeUserRole(user.role),
-    createdAt: new Date(user.createdAt).toISOString(),
-  }));
+  const users: ManagedUser[] = userList.users
+    .filter((user) => user.role !== "cliente")
+    .map((user) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      role: normalizeUserRole(user.role),
+      createdAt: new Date(user.createdAt).toISOString(),
+    }));
 
   // Sort by id desc (API may not guarantee order)
   productos.sort((a, b) => b.id - a.id);
-  clientes.sort((a, b) => b.id - a.id);
   facturasFull.sort((a, b) => b.id - a.id);
 
   // Map facturas to match the format expected by DashboardManagement
