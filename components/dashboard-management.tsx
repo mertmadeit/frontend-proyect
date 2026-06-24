@@ -446,13 +446,11 @@ function FacturasCrud({
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-5 py-6 sm:grid-cols-2">
-              <Field
-                label="Número"
-                name="numero"
-                type="number"
-                min="1"
-                defaultValue={editing?.numero}
-              />
+              <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                {editing
+                  ? `Folio #${editing.numero}`
+                  : "El folio se generará automáticamente al guardar."}
+              </div>
               <Field
                 label="Total (MXN)"
                 name="valor"

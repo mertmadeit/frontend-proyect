@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS `facturas` (
   `created_at` DATETIME(3) NULL,
   `updated_at` DATETIME(3) NULL,
   PRIMARY KEY (`id`),
-  KEY `facturas_numero_idx` (`numero`),
+  UNIQUE KEY `facturas_numero_idx` (`numero`),
   CONSTRAINT `facturas_idCliente_fkey` FOREIGN KEY (`idCliente`) REFERENCES `clientes` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `facturas_idforma_fkey` FOREIGN KEY (`idforma`) REFERENCES `formaspago` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `facturas_idestado_fkey` FOREIGN KEY (`idestado`) REFERENCES `estadosfacturas` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
@@ -703,3 +703,42 @@ WHERE cliente.email = 'contacto@estudionorte.test'
 LIMIT 1;
 
 COMMIT;
+
+-- Consecutivo transaccional para que el folio se genere exclusivamente en backend.
+CREATE TABLE IF NOT EXISTS `consecutivos` (
+  `nombre` VARCHAR(64) NOT NULL,
+  `valor` INTEGER UNSIGNED NOT NULL,
+  PRIMARY KEY (`nombre`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+INSERT INTO `consecutivos` (`nombre`, `valor`)
+SELECT 'factura', GREATEST(resumen.`maximo`, 1000)
+FROM (
+  SELECT COALESCE(MAX(`numero`), 0) AS `maximo` FROM `facturas`
+) AS resumen
+WHERE NOT EXISTS (
+  SELECT 1 FROM `consecutivos` WHERE `nombre` = 'factura'
+);
+
+UPDATE `consecutivos`
+SET `valor` = GREATEST(
+  `valor`,
+  (SELECT COALESCE(MAX(`numero`), 0) FROM `facturas`)
+)
+WHERE `nombre` = 'factura';
+
+SET @facturas_numero_non_unique = (
+  SELECT MAX(`NON_UNIQUE`)
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'facturas'
+    AND INDEX_NAME = 'facturas_numero_idx'
+);
+SET @make_facturas_numero_unique = IF(
+  @facturas_numero_non_unique = 1,
+  'ALTER TABLE `facturas` DROP INDEX `facturas_numero_idx`, ADD UNIQUE INDEX `facturas_numero_idx` (`numero`)',
+  'SELECT 1'
+);
+PREPARE make_facturas_numero_unique_statement FROM @make_facturas_numero_unique;
+EXECUTE make_facturas_numero_unique_statement;
+DEALLOCATE PREPARE make_facturas_numero_unique_statement;

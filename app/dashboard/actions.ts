@@ -294,7 +294,6 @@ export async function guardarFactura(formData: FormData): Promise<ActionResult> 
   const session = await requireSession(["admin", "supervisor"]);
 
   const id = optionalId(formData);
-  const numero = positiveInteger(formData, "numero");
   const valor = positiveInteger(formData, "valor");
   const idCliente = positiveInteger(formData, "idCliente");
   const idforma = positiveInteger(formData, "idforma");
@@ -302,7 +301,6 @@ export async function guardarFactura(formData: FormData): Promise<ActionResult> 
   const detalles = requiredText(formData, "detalles");
 
   if (
-    !numero ||
     !valor ||
     !idCliente ||
     !idforma ||
@@ -312,40 +310,19 @@ export async function guardarFactura(formData: FormData): Promise<ActionResult> 
     return { ok: false, message: "Completa todos los campos de la factura." };
   }
 
-  let duplicateExists = false;
   let cliente: { nombre: string; email: string } | null = null;
 
   try {
-    const [dupRes, selectedClient] = await Promise.all([
-      apiFetch(
-        `/facturas/check-duplicate?numero=${numero}${id ? `&excludeId=${id}` : ""}`,
-      ),
-      id
-        ? Promise.resolve(null)
-        : apiFetchJson<{ nombre: string; email: string }>(
-            `/clientes/${idCliente}`,
-          ),
-    ]);
-
-    if (!dupRes.ok) {
-      return {
-        ok: false,
-        message: "No fue posible validar el número de factura.",
-      };
-    }
-
-    duplicateExists = ((await dupRes.json()) as { exists: boolean }).exists;
-    cliente = selectedClient;
+    cliente = id
+      ? null
+      : await apiFetchJson<{ nombre: string; email: string }>(
+          `/clientes/${idCliente}`,
+        );
   } catch (error) {
     return failure(error, "No fue posible validar los datos de la factura.");
   }
 
-  if (duplicateExists) {
-    return { ok: false, message: "Ya existe una factura con ese número." };
-  }
-
   const body = {
-    numero,
     valor,
     idCliente,
     idforma,
@@ -369,7 +346,7 @@ export async function guardarFactura(formData: FormData): Promise<ActionResult> 
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
 
-      const facturaCreada = (await res.json()) as { id?: number };
+      const facturaCreada = (await res.json()) as { id?: number; numero: number };
       if (!cliente?.email) {
         return {
           ok: true,
@@ -380,7 +357,7 @@ export async function guardarFactura(formData: FormData): Promise<ActionResult> 
       after(async () => {
         await sendInvoiceToClient({
           facturaId: facturaCreada.id,
-          numero,
+          numero: facturaCreada.numero,
           valor,
           detalles,
           cliente,
@@ -389,7 +366,10 @@ export async function guardarFactura(formData: FormData): Promise<ActionResult> 
     }
 
     revalidatePath("/dashboard");
-    return { ok: true, message: id ? "Factura actualizada." : "Factura agregada." };
+    return {
+      ok: true,
+      message: id ? "Factura actualizada." : "Factura agregada con folio automático.",
+    };
   } catch (error) {
     return failure(error, "No fue posible guardar la factura.");
   }
