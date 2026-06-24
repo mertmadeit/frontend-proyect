@@ -18,14 +18,12 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import type { UserRole } from "@/lib/roles";
 
 export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("supervisor");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isPending, setIsPending] = useState(false);
@@ -47,7 +45,6 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
         name,
         email,
         password,
-        role,
         callbackURL: "/login",
       });
 
@@ -94,23 +91,6 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
                 disabled={isPending}
                 required
               />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="signup-role">Tipo de rol</FieldLabel>
-              <select
-                id="signup-role"
-                value={role}
-                onChange={(event) => setRole(event.target.value as UserRole)}
-                disabled={isPending}
-                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm outline-none transition-shadow focus:border-gray-500 focus:ring-2 focus:ring-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
-                required
-              >
-                <option value="supervisor">Supervisor</option>
-                <option value="admin">Administrador</option>
-              </select>
-              <FieldDescription>
-                El supervisor solo puede administrar facturas.
-              </FieldDescription>
             </Field>
             <Field>
               <FieldLabel htmlFor="signup-email">

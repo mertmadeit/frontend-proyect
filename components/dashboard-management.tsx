@@ -93,6 +93,7 @@ export function DashboardManagement({
   formasPago,
   estadosFactura,
   isAdmin,
+  canManageInvoices,
 }: {
   section: Section;
   clientes: ClienteDashboard[];
@@ -101,6 +102,7 @@ export function DashboardManagement({
   formasPago: Option[];
   estadosFactura: StatusOption[];
   isAdmin: boolean;
+  canManageInvoices: boolean;
 }) {
   const visibleTabs = isAdmin
     ? tabs
@@ -136,6 +138,7 @@ export function DashboardManagement({
           clientes={clientes}
           formasPago={formasPago}
           estadosFactura={estadosFactura}
+          canManage={canManageInvoices}
         />
       ) : (
         <PerfilesCrud data={perfiles} />
@@ -292,11 +295,13 @@ function FacturasCrud({
   clientes,
   formasPago,
   estadosFactura,
+  canManage,
 }: {
   data: FacturaDashboard[];
   clientes: ClienteDashboard[];
   formasPago: Option[];
   estadosFactura: StatusOption[];
+  canManage: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -305,7 +310,11 @@ function FacturasCrud({
   const [feedback, setFeedback] = useState("");
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
-  const canCreate = clientes.length > 0 && formasPago.length > 0 && estadosFactura.length > 0;
+  const canCreate =
+    canManage &&
+    clientes.length > 0 &&
+    formasPago.length > 0 &&
+    estadosFactura.length > 0;
 
   const filteredData = data.filter((f) =>
     f.numero.toString().includes(search) ||
@@ -349,11 +358,20 @@ function FacturasCrud({
   return (
     <CrudCard
       title="Facturas emitidas"
-      description="Crea y administra las facturas vinculadas a tus clientes."
-      addLabel="Agregar factura"
-      onAdd={() => openForm()}
+      description={
+        canManage
+          ? "Crea y administra las facturas vinculadas a tus clientes."
+          : "Consulta y descarga las facturas de la tienda."
+      }
+      addLabel={canManage ? "Agregar factura" : undefined}
+      onAdd={canManage ? () => openForm() : undefined}
       addDisabled={!canCreate}
-      feedback={feedback || (!canCreate ? "Agrega clientes y catálogos auxiliares antes de crear una factura." : "")}
+      feedback={
+        feedback ||
+        (canManage && !canCreate
+          ? "Agrega clientes y catálogos auxiliares antes de crear una factura."
+          : "")
+      }
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="Buscar por folio, cliente o estado..."
@@ -396,13 +414,13 @@ function FacturasCrud({
                   {formatoPrecio.format(factura.valor)}
                 </TableCell>
                 <Actions
-                  editLabel={`Modificar factura ${factura.numero}`}
-                  deleteLabel={`Eliminar factura ${factura.numero}`}
+                  editLabel={canManage ? `Modificar factura ${factura.numero}` : undefined}
+                  deleteLabel={canManage ? `Eliminar factura ${factura.numero}` : undefined}
                   downloadLabel={`Descargar factura ${factura.numero} en PDF`}
                   downloadPath={`/api/facturas/${factura.id}/pdf`}
                   disabled={isPending}
-                  onEdit={() => openForm(factura)}
-                  onDelete={() => remove(factura)}
+                  onEdit={canManage ? () => openForm(factura) : undefined}
+                  onDelete={canManage ? () => remove(factura) : undefined}
                 />
               </TableRow>
             ))
@@ -630,8 +648,8 @@ function CrudCard({
 }: {
   title: string;
   description: string;
-  addLabel: string;
-  onAdd: () => void;
+  addLabel?: string;
+  onAdd?: () => void;
   addDisabled?: boolean;
   feedback: string;
   searchValue?: string;
@@ -659,10 +677,12 @@ function CrudCard({
               />
             </div>
           )}
-          <Button size="sm" onClick={onAdd} disabled={addDisabled} className="shrink-0 transition-transform hover:scale-[1.02]">
-            <Plus className="mr-1.5 size-4" />
-            {addLabel}
-          </Button>
+          {onAdd && addLabel ? (
+            <Button size="sm" onClick={onAdd} disabled={addDisabled} className="shrink-0 transition-transform hover:scale-[1.02]">
+              <Plus className="mr-1.5 size-4" />
+              {addLabel}
+            </Button>
+          ) : null}
         </div>
       </CardHeader>
       <CardContent>
@@ -688,13 +708,13 @@ function Actions({
   onEdit,
   onDelete,
 }: {
-  editLabel: string;
-  deleteLabel: string;
+  editLabel?: string;
+  deleteLabel?: string;
   downloadLabel?: string;
   downloadPath?: string;
   disabled: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <TableCell>
@@ -733,7 +753,7 @@ function Actions({
             </TooltipContent>
           </Tooltip>
         ) : null}
-        <Tooltip>
+        {onEdit && editLabel ? <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" onClick={onEdit} disabled={disabled} className="text-gray-500 hover:text-blue-600 hover:bg-blue-50">
               <Pencil className="size-4" />
@@ -743,9 +763,9 @@ function Actions({
           <TooltipContent>
             <p>Editar</p>
           </TooltipContent>
-        </Tooltip>
+        </Tooltip> : null}
 
-        <Tooltip>
+        {onDelete && deleteLabel ? <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
@@ -761,7 +781,7 @@ function Actions({
           <TooltipContent>
             <p>Eliminar</p>
           </TooltipContent>
-        </Tooltip>
+        </Tooltip> : null}
       </div>
     </TableCell>
   );

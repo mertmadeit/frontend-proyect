@@ -10,7 +10,7 @@ import {
   sendEmail,
 } from "@/lib/email";
 
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiFetchForRole, apiFetchJson } from "@/lib/api";
 import {
   normalizeUserRole,
   USER_ROLES,
@@ -85,15 +85,15 @@ function validProduct(producto: ReturnType<typeof productFrom>) {
   );
 }
 
-async function request(path: string, init: RequestInit) {
-  const response = await apiFetch(path, init);
+async function request(path: string, init: RequestInit, role: unknown) {
+  const response = await apiFetchForRole(path, role, init);
   if (!response.ok) throw new Error(`API error: ${response.status}`);
 }
 
 export async function crearProducto(
   formData: FormData,
 ): Promise<ActionResult> {
-  await requireSession(["admin"]);
+  const session = await requireSession(["admin"]);
   const producto = productFrom(formData);
 
   if (!validProduct(producto)) {
@@ -108,7 +108,7 @@ export async function crearProducto(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(producto),
-    });
+    }, session.user.role);
     revalidatePath("/");
     revalidatePath("/dashboard");
     return { ok: true, message: "Producto agregado." };
@@ -118,10 +118,10 @@ export async function crearProducto(
 }
 
 export async function eliminarProducto(id: number): Promise<ActionResult> {
-  await requireSession(["admin"]);
+  const session = await requireSession(["admin"]);
 
   try {
-    await request(`/productos/${id}`, { method: "DELETE" });
+    await request(`/productos/${id}`, { method: "DELETE" }, session.user.role);
     revalidatePath("/");
     revalidatePath("/dashboard");
     return { ok: true, message: "Producto eliminado." };
@@ -131,7 +131,7 @@ export async function eliminarProducto(id: number): Promise<ActionResult> {
 }
 
 export async function actualizarProducto(formData: FormData) {
-  await requireSession(["admin"]);
+  const session = await requireSession(["admin"]);
   const id = Number(formData.get("id"));
   const producto = productFrom(formData);
 
@@ -143,7 +143,7 @@ export async function actualizarProducto(formData: FormData) {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(producto),
-  });
+  }, session.user.role);
 
   revalidatePath("/");
   revalidatePath("/dashboard");
@@ -151,7 +151,7 @@ export async function actualizarProducto(formData: FormData) {
 }
 
 export async function guardarCliente(formData: FormData): Promise<ActionResult> {
-  await requireSession(["admin"]);
+  const session = await requireSession(["admin"]);
 
   const id = optionalId(formData);
   const nombre = requiredText(formData, "nombre");
@@ -168,14 +168,14 @@ export async function guardarCliente(formData: FormData): Promise<ActionResult> 
     const body = { nombre, rfc, direccion, telefono, email };
 
     if (id) {
-      const res = await apiFetch(`/clientes/${id}`, {
+      const res = await apiFetchForRole(`/clientes/${id}`, session.user.role, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
     } else {
-      const res = await apiFetch(`/clientes`, {
+      const res = await apiFetchForRole(`/clientes`, session.user.role, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -191,10 +191,10 @@ export async function guardarCliente(formData: FormData): Promise<ActionResult> 
 }
 
 export async function eliminarCliente(id: number): Promise<ActionResult> {
-  await requireSession(["admin"]);
+  const session = await requireSession(["admin"]);
 
   try {
-    const res = await apiFetch(`/clientes/${id}`, {
+    const res = await apiFetchForRole(`/clientes/${id}`, session.user.role, {
       method: "DELETE",
     });
     if (!res.ok) throw new Error(`Error ${res.status}`);
@@ -206,7 +206,7 @@ export async function eliminarCliente(id: number): Promise<ActionResult> {
 }
 
 export async function guardarFactura(formData: FormData): Promise<ActionResult> {
-  const session = await requireSession();
+  const session = await requireSession(["admin", "supervisor"]);
 
   const id = optionalId(formData);
   const numero = positiveInteger(formData, "numero");
@@ -246,47 +246,94 @@ export async function guardarFactura(formData: FormData): Promise<ActionResult> 
     detalles,
   };
 
+  let cliente: { nombre: string; email: string };
+  try {
+    cliente = await apiFetchJson<{ nombre: string; email: string }>(
+      `/clientes/${idCliente}`,
+    );
+  } catch (error) {
+    return failure(error, "No fue posible encontrar al cliente de la factura.");
+  }
+
   try {
     if (id) {
-      const res = await apiFetch(`/facturas/${id}`, {
+      const res = await apiFetchForRole(`/facturas/${id}`, session.user.role, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
     } else {
-      const res = await apiFetch(`/facturas`, {
+      const res = await apiFetchForRole(`/facturas`, session.user.role, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
 
+      const facturaCreada = (await res.json()) as { id?: number };
+      if (!cliente.email) {
+        return {
+          ok: true,
+          message: "Factura agregada, pero el cliente no tiene correo registrado.",
+        };
+      }
+
       const formatoPrecio = new Intl.NumberFormat("es-MX", {
         style: "currency",
         currency: "MXN",
       });
 
-      sendEmail({
-        to: session.user.email,
-        subject: `Factura #${numero} registrada | Luminar`,
-        html: renderLuminarEmail({
-          previewText: `La factura #${numero} se registró correctamente en Luminar.`,
-          eyebrow: "Confirmación del panel",
-          title: "Factura registrada",
-          contentHtml: `
-            <p style="margin:0 0 16px;">Hola <strong style="color:#111827;">${escapeEmailHtml(session.user.name)}</strong>,</p>
-            <p style="margin:0;">La nueva factura se guardó correctamente y ya está disponible en el panel de Luminar.</p>
-          `,
-          details: [
-            { label: "Folio", value: `#${numero}` },
-            { label: "Valor total", value: formatoPrecio.format(valor) },
-            { label: "Detalles", value: detalles },
-          ],
-          note: "Puedes consultar o descargar el documento desde la sección de facturas del panel.",
-        }),
-        text: `Hola ${session.user.name}. La factura #${numero} se registró correctamente en Luminar. Total: ${formatoPrecio.format(valor)}. Detalles: ${detalles}.`,
-      }).catch(console.error);
+      let attachments:
+        | Array<{ filename: string; content: Buffer; contentType: string }>
+        | undefined;
+
+      if (facturaCreada.id) {
+        const pdfResponse = await apiFetch(`/facturas/${facturaCreada.id}/pdf`);
+        if (pdfResponse.ok) {
+          attachments = [
+            {
+              filename: `factura-${numero}.pdf`,
+              content: Buffer.from(await pdfResponse.arrayBuffer()),
+              contentType: "application/pdf",
+            },
+          ];
+        }
+      }
+
+      try {
+        await sendEmail({
+          to: cliente.email,
+          subject: `Tu factura #${numero} | Luminar`,
+          html: renderLuminarEmail({
+            previewText: `Tu factura #${numero} de Luminar ya está disponible.`,
+            eyebrow: "Comprobante de compra",
+            title: "Tu factura está lista",
+            contentHtml: `
+              <p style="margin:0 0 16px;">Hola <strong style="color:#111827;">${escapeEmailHtml(cliente.nombre)}</strong>,</p>
+              <p style="margin:0;">Gracias por tu compra. Te enviamos la factura asociada a tu registro de cliente en Luminar.</p>
+            `,
+            details: [
+              { label: "Folio", value: `#${numero}` },
+              { label: "Valor total", value: formatoPrecio.format(valor) },
+              { label: "Detalles", value: detalles },
+            ],
+            note: attachments
+              ? "Encontrarás el documento PDF adjunto a este correo."
+              : "El comprobante quedó registrado correctamente en Luminar.",
+          }),
+          text: `Hola ${cliente.nombre}. Te enviamos tu factura #${numero} de Luminar. Total: ${formatoPrecio.format(valor)}. Detalles: ${detalles}.`,
+          attachments,
+        });
+      } catch (error) {
+        console.error(error);
+        revalidatePath("/dashboard");
+        return {
+          ok: true,
+          message:
+            "Factura agregada, pero no fue posible enviarla al correo del cliente.",
+        };
+      }
     }
 
     revalidatePath("/dashboard");
@@ -297,10 +344,10 @@ export async function guardarFactura(formData: FormData): Promise<ActionResult> 
 }
 
 export async function eliminarFactura(id: number): Promise<ActionResult> {
-  await requireSession();
+  const session = await requireSession(["admin", "supervisor"]);
 
   try {
-    const res = await apiFetch(`/facturas/${id}`, {
+    const res = await apiFetchForRole(`/facturas/${id}`, session.user.role, {
       method: "DELETE",
     });
     if (!res.ok) throw new Error(`Error ${res.status}`);
@@ -312,7 +359,7 @@ export async function eliminarFactura(id: number): Promise<ActionResult> {
 }
 
 export async function guardarPerfil(formData: FormData): Promise<ActionResult> {
-  await requireSession(["admin"]);
+  const session = await requireSession(["admin"]);
 
   const id = optionalId(formData);
   const nombre = requiredText(formData, "nombre");
@@ -323,14 +370,14 @@ export async function guardarPerfil(formData: FormData): Promise<ActionResult> {
 
   try {
     if (id) {
-      const res = await apiFetch(`/perfiles/${id}`, {
+      const res = await apiFetchForRole(`/perfiles/${id}`, session.user.role, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre }),
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
     } else {
-      const res = await apiFetch(`/perfiles`, {
+      const res = await apiFetchForRole(`/perfiles`, session.user.role, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre }),
@@ -346,10 +393,10 @@ export async function guardarPerfil(formData: FormData): Promise<ActionResult> {
 }
 
 export async function eliminarPerfil(id: number): Promise<ActionResult> {
-  await requireSession(["admin"]);
+  const session = await requireSession(["admin"]);
 
   try {
-    const res = await apiFetch(`/perfiles/${id}`, {
+    const res = await apiFetchForRole(`/perfiles/${id}`, session.user.role, {
       method: "DELETE",
     });
     if (!res.ok) throw new Error(`Error ${res.status}`);
@@ -357,5 +404,100 @@ export async function eliminarPerfil(id: number): Promise<ActionResult> {
     return { ok: true, message: "Perfil eliminado." };
   } catch (error) {
     return failure(error, "No fue posible eliminar el perfil.");
+  }
+}
+
+export async function guardarUsuario(formData: FormData): Promise<ActionResult> {
+  const session = await requireSession(["admin"]);
+  const requestHeaders = await headers();
+  const id = requiredText(formData, "id");
+  const name = requiredText(formData, "name");
+  const email = requiredText(formData, "email").toLowerCase();
+  const password = requiredText(formData, "password");
+  const role = normalizeUserRole(requiredText(formData, "role"));
+
+  if (!name || !email || !email.includes("@")) {
+    return { ok: false, message: "Escribe un nombre y un correo válidos." };
+  }
+
+  if (!id && password.length < 8) {
+    return {
+      ok: false,
+      message: "La contraseña debe tener al menos 8 caracteres.",
+    };
+  }
+
+  if (id === session.user.id && role !== "admin") {
+    return {
+      ok: false,
+      message: "No puedes quitarte tu propio acceso de administrador.",
+    };
+  }
+
+  try {
+    if (id) {
+      await auth.api.adminUpdateUser({
+        body: { userId: id, data: { name, email } },
+        headers: requestHeaders,
+      });
+      await auth.api.setRole({
+        body: { userId: id, role },
+        headers: requestHeaders,
+      });
+
+      if (password) {
+        if (password.length < 8) {
+          return {
+            ok: false,
+            message: "La nueva contraseña debe tener al menos 8 caracteres.",
+          };
+        }
+        await auth.api.setUserPassword({
+          body: { userId: id, newPassword: password },
+          headers: requestHeaders,
+        });
+      }
+    } else {
+      await auth.api.createUser({
+        body: {
+          name,
+          email,
+          password,
+          role,
+          data: { emailVerified: true },
+        },
+        headers: requestHeaders,
+      });
+    }
+
+    revalidatePath("/dashboard");
+    return {
+      ok: true,
+      message: id ? "Usuario actualizado." : "Usuario creado.",
+    };
+  } catch (error) {
+    return failure(error, "No fue posible guardar el usuario.");
+  }
+}
+
+export async function eliminarUsuario(id: string): Promise<ActionResult> {
+  const session = await requireSession(["admin"]);
+
+  if (!id || id === session.user.id) {
+    return {
+      ok: false,
+      message: "No puedes eliminar tu propia cuenta de administrador.",
+    };
+  }
+
+  try {
+    await auth.api.removeUser({
+      body: { userId: id },
+      headers: await headers(),
+    });
+    revalidatePath("/dashboard");
+    return { ok: true, message: "Usuario eliminado." };
+  } catch (error) {
+    return failure(error, "No fue posible eliminar el usuario.");
   }
 }

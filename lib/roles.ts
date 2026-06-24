@@ -1,11 +1,15 @@
-export const USER_ROLES = ["admin", "supervisor"] as const;
+export const USER_ROLES = ["admin", "supervisor", "empleado"] as const;
 
 export type UserRole = (typeof USER_ROLES)[number];
 
 export function normalizeUserRole(role: unknown): UserRole {
-  return role === "admin" ? "admin" : "supervisor";
+  return USER_ROLES.includes(role as UserRole)
+    ? (role as UserRole)
+    : "empleado";
 }
 
 export function getUserRoleLabel(role: UserRole) {
-  return role === "admin" ? "Administrador" : "Supervisor";
+  if (role === "admin") return "Administrador";
+  if (role === "supervisor") return "Supervisor";
+  return "Empleado";
 }

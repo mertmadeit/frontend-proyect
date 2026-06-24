@@ -6,6 +6,7 @@ import {
   Infinity as InfinityIcon,
   ReceiptText,
   UserCog,
+  UserRoundCog,
   Users,
 } from "lucide-react";
 import { NavDocuments } from "@/components/nav-documents";
@@ -37,6 +38,11 @@ const management = [
     name: "Perfiles",
     url: "/dashboard?seccion=perfiles#administracion",
     icon: <UserCog />,
+  },
+  {
+    name: "Usuarios",
+    url: "/dashboard?seccion=usuarios#administracion",
+    icon: <UserRoundCog />,
   },
 ];
 

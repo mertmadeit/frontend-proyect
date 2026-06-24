@@ -1,11 +1,30 @@
 import { betterAuth } from "better-auth";
 import { createPool } from "mysql2/promise";
+import { createAccessControl } from "better-auth/plugins/access";
+import { admin } from "better-auth/plugins/admin";
 import {
   escapeEmailHtml,
   renderLuminarEmail,
   sendEmail,
 } from "@/lib/email";
-import { normalizeUserRole } from "@/lib/roles";
+
+const adminStatements = {
+  user: [
+    "create",
+    "list",
+    "set-role",
+    "delete",
+    "set-password",
+    "set-email",
+    "get",
+    "update",
+  ],
+  session: ["list", "revoke", "delete"],
+} as const;
+
+const accessControl = createAccessControl(adminStatements);
+const adminRole = accessControl.newRole(adminStatements);
+const internalRole = accessControl.newRole({ user: [], session: [] });
 
 export const auth = betterAuth({
   appName: "Luminar",
@@ -19,19 +38,18 @@ export const auth = betterAuth({
     database: process.env.DATABASE_NAME!,
     timezone: "Z",
   }),
-  user: {
-    additionalFields: {
-      role: {
-        type: "string",
-        required: true,
-        defaultValue: "supervisor",
-        input: true,
-        transform: {
-          input: normalizeUserRole,
-        },
+  plugins: [
+    admin({
+      defaultRole: "empleado",
+      adminRoles: ["admin"],
+      ac: accessControl,
+      roles: {
+        admin: adminRole,
+        supervisor: internalRole,
+        empleado: internalRole,
       },
-    },
-  },
+    }),
+  ],
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,

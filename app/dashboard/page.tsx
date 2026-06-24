@@ -7,6 +7,10 @@ import { DashboardManagement } from "@/components/dashboard-management";
 import { SectionCards } from "@/components/section-cards";
 import { SiteHeader } from "@/components/site-header";
 import {
+  UsersManagement,
+  type ManagedUser,
+} from "@/components/users-management";
+import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar";
@@ -73,8 +77,9 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ seccion?: string | string[] }>;
 }) {
+  const requestHeaders = await headers();
   const session = await auth.api.getSession({
-    headers: await headers(),
+    headers: requestHeaders,
   });
 
   if (!session) {
@@ -83,16 +88,39 @@ export default async function DashboardPage({
 
   const role = normalizeUserRole(session.user.role);
   const isAdmin = role === "admin";
+  const canManageInvoices = role === "admin" || role === "supervisor";
 
   const requestedSection = (await searchParams).seccion;
   const sectionValue = Array.isArray(requestedSection)
     ? requestedSection[0]
     : requestedSection;
   const section = isAdmin
-    ? sectionValue === "facturas" || sectionValue === "perfiles"
+    ? sectionValue === "facturas" ||
+      sectionValue === "perfiles" ||
+      sectionValue === "usuarios"
       ? sectionValue
       : "clientes"
     : "facturas";
+
+  const userList = isAdmin
+    ? await auth.api.listUsers({
+        query: {
+          limit: 100,
+          sortBy: "createdAt",
+          sortDirection: "desc",
+        },
+        headers: requestHeaders,
+      })
+    : { users: [], total: 0 };
+
+  const users: ManagedUser[] = userList.users.map((user) => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    emailVerified: user.emailVerified,
+    role: normalizeUserRole(user.role),
+    createdAt: new Date(user.createdAt).toISOString(),
+  }));
 
   const [
     productos,
@@ -134,10 +162,18 @@ export default async function DashboardPage({
   }));
 
   // Map perfiles to include _count (not available from API, so set to 0)
-  const perfilesConCount = perfiles.map((p) => ({
-    ...p,
-    _count: { users: 0 },
-  }));
+  const perfilesConCount = perfiles.map((p) => {
+    const perfilRole = p.nombre.toLowerCase().startsWith("admin")
+      ? "admin"
+      : p.nombre.toLowerCase().startsWith("super")
+        ? "supervisor"
+        : "empleado";
+
+    return {
+      ...p,
+      _count: { users: users.filter((user) => user.role === perfilRole).length },
+    };
+  });
 
   const totalUnidades = productos.reduce(
     (total, producto) => total + producto.cantidad,
@@ -215,15 +251,23 @@ export default async function DashboardPage({
                 ) : null}
 
                 <div className="reveal-up-delay-3">
-                  <DashboardManagement
-                    section={section}
-                    clientes={clientes}
-                    facturas={facturas}
-                    perfiles={perfilesConCount}
-                    formasPago={formasPago}
-                    estadosFactura={estadosFactura}
-                    isAdmin={isAdmin}
-                  />
+                  {section === "usuarios" ? (
+                    <UsersManagement
+                      users={users}
+                      currentUserId={session.user.id}
+                    />
+                  ) : (
+                    <DashboardManagement
+                      section={section}
+                      clientes={clientes}
+                      facturas={facturas}
+                      perfiles={perfilesConCount}
+                      formasPago={formasPago}
+                      estadosFactura={estadosFactura}
+                      isAdmin={isAdmin}
+                      canManageInvoices={canManageInvoices}
+                    />
+                  )}
                 </div>
               </div>
             </div>

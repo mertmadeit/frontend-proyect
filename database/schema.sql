@@ -95,7 +95,10 @@ CREATE TABLE IF NOT EXISTS `user` (
   `name` VARCHAR(255) NOT NULL,
   `email` VARCHAR(255) NOT NULL,
   `emailVerified` TINYINT(1) NOT NULL,
-  `role` VARCHAR(32) NOT NULL DEFAULT 'supervisor',
+  `role` VARCHAR(32) NOT NULL DEFAULT 'empleado',
+  `banned` TINYINT(1) NOT NULL DEFAULT 0,
+  `banReason` TEXT NULL,
+  `banExpires` DATETIME(3) NULL,
   `image` TEXT,
   `createdAt` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updatedAt` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -113,12 +116,74 @@ SET @role_column_exists = (
 );
 SET @role_migration = IF(
   @role_column_exists = 0,
-  'ALTER TABLE `user` ADD COLUMN `role` VARCHAR(32) NOT NULL DEFAULT ''supervisor'' AFTER `emailVerified`',
+  'ALTER TABLE `user` ADD COLUMN `role` VARCHAR(32) NOT NULL DEFAULT ''empleado'' AFTER `emailVerified`',
   'SELECT 1'
 );
 PREPARE role_statement FROM @role_migration;
 EXECUTE role_statement;
 DEALLOCATE PREPARE role_statement;
+
+ALTER TABLE `user`
+  MODIFY COLUMN `role` VARCHAR(32) NOT NULL DEFAULT 'empleado';
+
+-- Columnas requeridas por el complemento administrativo de Better Auth.
+SET @banned_column_exists = (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user' AND COLUMN_NAME = 'banned'
+);
+SET @banned_migration = IF(
+  @banned_column_exists = 0,
+  'ALTER TABLE `user` ADD COLUMN `banned` TINYINT(1) NOT NULL DEFAULT 0 AFTER `role`',
+  'SELECT 1'
+);
+PREPARE banned_statement FROM @banned_migration;
+EXECUTE banned_statement;
+DEALLOCATE PREPARE banned_statement;
+
+SET @ban_reason_column_exists = (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user' AND COLUMN_NAME = 'banReason'
+);
+SET @ban_reason_migration = IF(
+  @ban_reason_column_exists = 0,
+  'ALTER TABLE `user` ADD COLUMN `banReason` TEXT NULL AFTER `banned`',
+  'SELECT 1'
+);
+PREPARE ban_reason_statement FROM @ban_reason_migration;
+EXECUTE ban_reason_statement;
+DEALLOCATE PREPARE ban_reason_statement;
+
+SET @ban_expires_column_exists = (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user' AND COLUMN_NAME = 'banExpires'
+);
+SET @ban_expires_migration = IF(
+  @ban_expires_column_exists = 0,
+  'ALTER TABLE `user` ADD COLUMN `banExpires` DATETIME(3) NULL AFTER `banReason`',
+  'SELECT 1'
+);
+PREPARE ban_expires_statement FROM @ban_expires_migration;
+EXECUTE ban_expires_statement;
+DEALLOCATE PREPARE ban_expires_statement;
+
+UPDATE `user`
+SET `role` = 'empleado'
+WHERE `role` IS NULL OR `role` NOT IN ('admin', 'supervisor', 'empleado');
+
+-- La cuenta mas antigua se convierte en administrador solo si aun no existe uno.
+UPDATE `user`
+SET `role` = 'admin'
+WHERE `id` = (
+  SELECT `first_user`.`id`
+  FROM (
+    SELECT `id` FROM `user` ORDER BY `createdAt` ASC, `id` ASC LIMIT 1
+  ) AS `first_user`
+)
+AND NOT EXISTS (
+  SELECT 1 FROM (
+    SELECT `id` FROM `user` WHERE `role` = 'admin' LIMIT 1
+  ) AS `existing_admin`
+);
 
 CREATE TABLE IF NOT EXISTS `session` (
   `id` VARCHAR(36) NOT NULL,
@@ -129,11 +194,25 @@ CREATE TABLE IF NOT EXISTS `session` (
   `ipAddress` TEXT,
   `userAgent` TEXT,
   `userId` VARCHAR(36) NOT NULL,
+  `impersonatedBy` VARCHAR(36) NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `token` (`token`),
   KEY `session_userId_idx` (`userId`),
   CONSTRAINT `session_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `user` (`id`) ON DELETE CASCADE
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+SET @impersonated_by_column_exists = (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'session' AND COLUMN_NAME = 'impersonatedBy'
+);
+SET @impersonated_by_migration = IF(
+  @impersonated_by_column_exists = 0,
+  'ALTER TABLE `session` ADD COLUMN `impersonatedBy` VARCHAR(36) NULL AFTER `userId`',
+  'SELECT 1'
+);
+PREPARE impersonated_by_statement FROM @impersonated_by_migration;
+EXECUTE impersonated_by_statement;
+DEALLOCATE PREPARE impersonated_by_statement;
 
 CREATE TABLE IF NOT EXISTS `account` (
   `id` VARCHAR(36) NOT NULL,
@@ -235,6 +314,10 @@ WHERE NOT EXISTS (SELECT 1 FROM `perfiles` WHERE `nombre` = 'Administrador');
 INSERT INTO `perfiles` (`nombre`)
 SELECT 'Supervisor'
 WHERE NOT EXISTS (SELECT 1 FROM `perfiles` WHERE `nombre` = 'Supervisor');
+
+INSERT INTO `perfiles` (`nombre`)
+SELECT 'Empleado'
+WHERE NOT EXISTS (SELECT 1 FROM `perfiles` WHERE `nombre` = 'Empleado');
 
 INSERT INTO `facturas` (
   `numero`, `detalles`, `valor`, `archivo`, `idCliente`, `idforma`, `idestado`, `created_at`, `updated_at`

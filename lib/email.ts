@@ -23,6 +23,11 @@ type SendEmailOptions = {
   subject: string;
   html: string;
   text?: string;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer;
+    contentType?: string;
+  }>;
 };
 
 type LuminarEmailOptions = {
@@ -145,7 +150,13 @@ export function renderLuminarEmail({
 </html>`;
 }
 
-export async function sendEmail({ to, subject, html, text }: SendEmailOptions) {
+export async function sendEmail({
+  to,
+  subject,
+  html,
+  text,
+  attachments,
+}: SendEmailOptions) {
   const client = getResendClient();
 
   const { error } = await client.emails.send({
@@ -154,6 +165,7 @@ export async function sendEmail({ to, subject, html, text }: SendEmailOptions) {
     subject,
     html,
     text,
+    attachments,
   });
 
   if (error) {
