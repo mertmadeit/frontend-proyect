@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { Download, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,46 +18,6 @@ export const formatoPrecio = new Intl.NumberFormat("es-MX", {
   currency: "MXN",
   maximumFractionDigits: 0,
 });
-
-export function DashboardTabs({
-  activeTab,
-  isAdmin,
-}: {
-  activeTab: "clientes" | "facturas" | "perfiles";
-  isAdmin: boolean;
-}) {
-  const tabs = [
-    { id: "clientes", label: "Clientes", href: "/dashboard/clientes" },
-    { id: "facturas", label: "Facturas", href: "/dashboard/facturas" },
-    { id: "perfiles", label: "Perfiles", href: "/dashboard/perfiles" },
-  ] as const;
-
-  const visibleTabs = isAdmin
-    ? tabs
-    : tabs.filter((tab) => tab.id === "facturas");
-
-  return (
-    <div className="mb-4 overflow-x-auto px-4 lg:px-6">
-      <nav className="flex w-fit items-center gap-1 rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm p-1 shadow-xs">
-        {visibleTabs.map((tab) => (
-          <Link
-            key={tab.id}
-            href={tab.href}
-            aria-current={activeTab === tab.id ? "page" : undefined}
-            className={cn(
-              "rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
-              activeTab === tab.id
-                ? "bg-black text-white shadow-sm"
-                : "text-gray-500 hover:bg-gray-100 hover:text-black",
-            )}
-          >
-            {tab.label}
-          </Link>
-        ))}
-      </nav>
-    </div>
-  );
-}
 
 export function CrudCard({
   title,

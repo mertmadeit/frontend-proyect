@@ -8,7 +8,6 @@ import { normalizeUserRole } from "@/lib/roles";
 import { apiFetchJson } from "@/lib/api";
 
 const ChartAreaInteractive = dynamic(() => import("@/components/chart-area-interactive").then(mod => mod.ChartAreaInteractive));
-const DataTable = dynamic(() => import("@/components/data-table").then(mod => mod.DataTable));
 
 export const metadata: Metadata = {
   title: "Dashboard | Luminar",
@@ -92,10 +91,6 @@ export default async function DashboardPage() {
             cantidad: producto.cantidad,
           }))}
         />
-      </div>
-
-      <div className="reveal-up-delay-3">
-        <DataTable data={productos} />
       </div>
     </div>
   );

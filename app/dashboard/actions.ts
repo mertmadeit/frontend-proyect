@@ -228,7 +228,7 @@ export async function actualizarProducto(formData: FormData) {
 
   revalidatePath("/");
   revalidatePath("/dashboard", "layout");
-  redirect("/dashboard");
+  redirect("/dashboard/productos");
 }
 
 export async function guardarCliente(formData: FormData): Promise<ActionResult> {

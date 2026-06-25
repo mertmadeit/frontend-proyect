@@ -5,6 +5,7 @@ import {
   CircleHelp,
   Infinity as InfinityIcon,
   LayoutDashboard,
+  Package,
   ReceiptText,
   UserCog,
   UserRoundCog,
@@ -29,6 +30,11 @@ const management = [
     name: "Resumen",
     url: "/dashboard",
     icon: <LayoutDashboard />,
+  },
+  {
+    name: "Productos",
+    url: "/dashboard/productos",
+    icon: <Package />,
   },
   {
     name: "Clientes",

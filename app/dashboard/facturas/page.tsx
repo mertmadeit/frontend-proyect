@@ -6,7 +6,7 @@ import { normalizeUserRole } from "@/lib/roles";
 import { apiFetchJson } from "@/lib/api";
 import { FacturasCrud, type FacturaDashboard, type ProductoDashboard } from "@/components/facturas-crud";
 import { type ClienteDashboard } from "@/components/clientes-crud";
-import { DashboardTabs, type Option, type StatusOption } from "@/components/dashboard-shared";
+import { type Option, type StatusOption } from "@/components/dashboard-shared";
 
 export const metadata: Metadata = {
   title: "Facturas | Luminar",
@@ -86,8 +86,6 @@ export default async function FacturasPage() {
             : "Consulta y descarga las facturas de la tienda."}
         </p>
       </div>
-
-      <DashboardTabs activeTab="facturas" isAdmin={isAdmin} />
 
       <div className="reveal-up-delay-3">
         <FacturasCrud

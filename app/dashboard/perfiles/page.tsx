@@ -5,7 +5,6 @@ import { auth } from "@/lib/auth";
 import { normalizeUserRole } from "@/lib/roles";
 import { apiFetchJson } from "@/lib/api";
 import { PerfilesCrud, type PerfilDashboard } from "@/components/perfiles-crud";
-import { DashboardTabs } from "@/components/dashboard-shared";
 
 export const metadata: Metadata = {
   title: "Perfiles de acceso | Luminar",
@@ -79,8 +78,6 @@ export default async function PerfilesPage() {
           Consulta y administra los perfiles internos.
         </p>
       </div>
-
-      <DashboardTabs activeTab="perfiles" isAdmin={isAdmin} />
 
       <div className="reveal-up-delay-3">
         <PerfilesCrud data={perfilesConCount} />

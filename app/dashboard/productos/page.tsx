@@ -4,14 +4,23 @@ import { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { normalizeUserRole } from "@/lib/roles";
 import { apiFetchJson } from "@/lib/api";
-import { ClientesCrud, type ClienteDashboard } from "@/components/clientes-crud";
+import { DataTable } from "@/components/data-table";
 
 export const metadata: Metadata = {
-  title: "Clientes | Luminar",
-  description: "Gestión de clientes de la tienda.",
+  title: "Productos | Luminar",
+  description: "Catálogo e inventario de productos de la tienda.",
 };
 
-export default async function ClientesPage() {
+type Producto = {
+  id: number;
+  nombre: string;
+  precio: number;
+  cantidad: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export default async function ProductosPage() {
   const requestHeaders = await headers();
   const session = await auth.api.getSession({
     headers: requestHeaders,
@@ -28,7 +37,8 @@ export default async function ClientesPage() {
     redirect("/dashboard/facturas");
   }
 
-  const clientes = await apiFetchJson<ClienteDashboard[]>("/clientes");
+  const productos = await apiFetchJson<Producto[]>("/productos");
+  productos.sort((a, b) => b.id - a.id);
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
@@ -37,15 +47,15 @@ export default async function ClientesPage() {
           Panel de control
         </p>
         <h1 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-black sm:text-3xl">
-          Gestión de clientes
+          Productos registrados
         </h1>
         <p className="mt-2 text-sm text-gray-500">
-          Administra los datos utilizados para emitir facturas.
+          Administra el catálogo y las existencias del inventario.
         </p>
       </div>
 
       <div className="reveal-up-delay-3">
-        <ClientesCrud data={clientes} />
+        <DataTable data={productos} />
       </div>
     </div>
   );

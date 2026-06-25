@@ -28,7 +28,7 @@ export default async function EditarProducto({ params }: Props) {
   }
 
   if (normalizeUserRole(session.user.role) !== "admin") {
-    redirect("/dashboard?seccion=facturas");
+    redirect("/dashboard/facturas");
   }
 
   const { id } = await params;
@@ -58,11 +58,11 @@ export default async function EditarProducto({ params }: Props) {
     <main className="min-h-screen bg-[#f9fafb] px-4 py-8 sm:px-6 sm:py-12">
       <div className="mx-auto max-w-3xl">
         <Link
-          href="/"
+          href="/dashboard/productos"
           className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Volver a la tienda
+          Volver al panel
         </Link>
 
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -127,7 +127,7 @@ export default async function EditarProducto({ params }: Props) {
                 className="h-10 rounded-md bg-white"
                 asChild
               >
-                <Link href="/">Cancelar</Link>
+                <Link href="/dashboard/productos">Cancelar</Link>
               </Button>
               <Button type="submit" className="h-10 rounded-md">
                 <Save className="h-4 w-4" />
