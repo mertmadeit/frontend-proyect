@@ -31,7 +31,7 @@ async function requireSession(allowedRoles: readonly UserRole[] = USER_ROLES) {
   }
 
   if (!allowedRoles.includes(normalizeUserRole(session.user.role))) {
-    redirect("/dashboard?seccion=facturas");
+    redirect("/dashboard/facturas");
   }
 
   return session;
@@ -191,7 +191,7 @@ export async function crearProducto(
       body: JSON.stringify(producto),
     }, session.user.role);
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidatePath("/dashboard", "layout");
     return { ok: true, message: "Producto agregado." };
   } catch (error) {
     return failure(error, "No fue posible agregar el producto.");
@@ -204,7 +204,7 @@ export async function eliminarProducto(id: number): Promise<ActionResult> {
   try {
     await request(`/productos/${id}`, { method: "DELETE" }, session.user.role);
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidatePath("/dashboard", "layout");
     return { ok: true, message: "Producto eliminado." };
   } catch (error) {
     return failure(error, "No fue posible eliminar el producto.");
@@ -227,7 +227,7 @@ export async function actualizarProducto(formData: FormData) {
   }, session.user.role);
 
   revalidatePath("/");
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
   redirect("/dashboard");
 }
 
@@ -268,7 +268,7 @@ export async function guardarCliente(formData: FormData): Promise<ActionResult> 
       }
     }
 
-    revalidatePath("/dashboard");
+    revalidatePath("/dashboard", "layout");
     return { ok: true, message: id ? "Cliente actualizado." : "Cliente agregado." };
   } catch (error) {
     return failure(error, "No fue posible guardar el cliente.");
@@ -283,7 +283,7 @@ export async function eliminarCliente(id: number): Promise<ActionResult> {
       method: "DELETE",
     });
     if (!res.ok) throw new Error(`Error ${res.status}`);
-    revalidatePath("/dashboard");
+    revalidatePath("/dashboard", "layout");
     return { ok: true, message: "Cliente eliminado." };
   } catch (error) {
     return failure(error, "No fue posible eliminar el cliente.");
@@ -365,7 +365,7 @@ export async function guardarFactura(formData: FormData): Promise<ActionResult> 
       });
     }
 
-    revalidatePath("/dashboard");
+    revalidatePath("/dashboard", "layout");
     return {
       ok: true,
       message: id ? "Factura actualizada." : "Factura agregada con folio automático.",
@@ -383,7 +383,7 @@ export async function eliminarFactura(id: number): Promise<ActionResult> {
       method: "DELETE",
     });
     if (!res.ok) throw new Error(`Error ${res.status}`);
-    revalidatePath("/dashboard");
+    revalidatePath("/dashboard", "layout");
     return { ok: true, message: "Factura eliminada." };
   } catch (error) {
     return failure(error, "No fue posible eliminar la factura.");
@@ -417,7 +417,7 @@ export async function guardarPerfil(formData: FormData): Promise<ActionResult> {
       if (!res.ok) throw new Error(`Error ${res.status}`);
     }
 
-    revalidatePath("/dashboard");
+    revalidatePath("/dashboard", "layout");
     return { ok: true, message: id ? "Perfil actualizado." : "Perfil agregado." };
   } catch (error) {
     return failure(error, "No fue posible guardar el perfil.");
@@ -432,7 +432,7 @@ export async function eliminarPerfil(id: number): Promise<ActionResult> {
       method: "DELETE",
     });
     if (!res.ok) throw new Error(`Error ${res.status}`);
-    revalidatePath("/dashboard");
+    revalidatePath("/dashboard", "layout");
     return { ok: true, message: "Perfil eliminado." };
   } catch (error) {
     return failure(error, "No fue posible eliminar el perfil.");
@@ -502,7 +502,7 @@ export async function guardarUsuario(formData: FormData): Promise<ActionResult> 
       });
     }
 
-    revalidatePath("/dashboard");
+    revalidatePath("/dashboard", "layout");
     return {
       ok: true,
       message: id ? "Usuario actualizado." : "Usuario creado.",
@@ -527,7 +527,7 @@ export async function eliminarUsuario(id: string): Promise<ActionResult> {
       body: { userId: id },
       headers: await headers(),
     });
-    revalidatePath("/dashboard");
+    revalidatePath("/dashboard", "layout");
     return { ok: true, message: "Usuario eliminado." };
   } catch (error) {
     return failure(error, "No fue posible eliminar el usuario.");

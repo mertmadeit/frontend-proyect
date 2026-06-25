@@ -27,27 +27,27 @@ import type { UserRole } from "@/lib/roles";
 const management = [
   {
     name: "Resumen",
-    url: "/dashboard?seccion=resumen",
+    url: "/dashboard",
     icon: <LayoutDashboard />,
   },
   {
     name: "Clientes",
-    url: "/dashboard?seccion=clientes#administracion",
+    url: "/dashboard/clientes",
     icon: <Users />,
   },
   {
     name: "Facturas",
-    url: "/dashboard?seccion=facturas#administracion",
+    url: "/dashboard/facturas",
     icon: <ReceiptText />,
   },
   {
     name: "Perfiles",
-    url: "/dashboard?seccion=perfiles#administracion",
+    url: "/dashboard/perfiles",
     icon: <UserCog />,
   },
   {
     name: "Usuarios",
-    url: "/dashboard?seccion=usuarios#administracion",
+    url: "/dashboard/usuarios",
     icon: <UserRoundCog />,
   },
 ];
