@@ -1,7 +1,9 @@
 import { betterAuth } from "better-auth";
-import { createPool } from "mysql2/promise";
+import { createPool, type Pool } from "mysql2/promise";
 import { createAccessControl } from "better-auth/plugins/access";
 import { admin } from "better-auth/plugins/admin";
+import { cache } from "react";
+import { headers } from "next/headers";
 import {
   escapeEmailHtml,
   renderLuminarEmail,
@@ -26,18 +28,28 @@ const accessControl = createAccessControl(adminStatements);
 const adminRole = accessControl.newRole(adminStatements);
 const internalRole = accessControl.newRole({ user: [], session: [] });
 
+declare global {
+  var _mysqlPool: Pool | undefined;
+}
+
+const pool = globalThis._mysqlPool || createPool({
+  host: process.env.DATABASE_HOST!,
+  port: Number(process.env.DATABASE_PORT || 3306),
+  user: process.env.DATABASE_USER!,
+  password: process.env.DATABASE_PASSWORD!,
+  database: process.env.DATABASE_NAME!,
+  timezone: "Z",
+});
+
+if (process.env.NODE_ENV !== "production") {
+  globalThis._mysqlPool = pool;
+}
+
 export const auth = betterAuth({
   appName: "Luminar",
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
-  database: createPool({
-    host: process.env.DATABASE_HOST!,
-    port: Number(process.env.DATABASE_PORT || 3306),
-    user: process.env.DATABASE_USER!,
-    password: process.env.DATABASE_PASSWORD!,
-    database: process.env.DATABASE_NAME!,
-    timezone: "Z",
-  }),
+  database: pool,
   plugins: [
     admin({
       defaultRole: "empleado",
@@ -102,3 +114,10 @@ export const auth = betterAuth({
     },
   },
 });
+
+export const getCachedSession = cache(async () => {
+  return auth.api.getSession({
+    headers: await headers(),
+  });
+});
+

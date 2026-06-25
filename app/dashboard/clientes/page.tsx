@@ -1,7 +1,6 @@
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Metadata } from "next";
-import { auth } from "@/lib/auth";
+import { getCachedSession } from "@/lib/auth";
 import { normalizeUserRole } from "@/lib/roles";
 import { apiFetchJson } from "@/lib/api";
 import { ClientesCrud, type ClienteDashboard } from "@/components/clientes-crud";
@@ -12,10 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ClientesPage() {
-  const requestHeaders = await headers();
-  const session = await auth.api.getSession({
-    headers: requestHeaders,
-  });
+  const session = await getCachedSession();
 
   if (!session) {
     redirect("/login");

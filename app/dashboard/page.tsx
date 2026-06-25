@@ -1,9 +1,8 @@
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SectionCards } from "@/components/section-cards";
 import dynamic from "next/dynamic";
 import { Metadata } from "next";
-import { auth } from "@/lib/auth";
+import { getCachedSession } from "@/lib/auth";
 import { normalizeUserRole } from "@/lib/roles";
 import { apiFetchJson } from "@/lib/api";
 
@@ -30,10 +29,7 @@ type Producto = {
 };
 
 export default async function DashboardPage() {
-  const requestHeaders = await headers();
-  const session = await auth.api.getSession({
-    headers: requestHeaders,
-  });
+  const session = await getCachedSession();
 
   if (!session) {
     redirect("/login");

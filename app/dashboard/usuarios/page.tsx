@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Metadata } from "next";
-import { auth } from "@/lib/auth";
+import { auth, getCachedSession } from "@/lib/auth";
 import { normalizeUserRole } from "@/lib/roles";
 import { UsersManagement, type ManagedUser } from "@/components/users-management";
 
@@ -11,10 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function UsuariosPage() {
-  const requestHeaders = await headers();
-  const session = await auth.api.getSession({
-    headers: requestHeaders,
-  });
+  const session = await getCachedSession();
 
   if (!session) {
     redirect("/login");
@@ -33,7 +30,7 @@ export default async function UsuariosPage() {
       sortBy: "createdAt",
       sortDirection: "desc",
     },
-    headers: requestHeaders,
+    headers: await headers(),
   });
 
   const users: ManagedUser[] = userList.users.map((user) => ({

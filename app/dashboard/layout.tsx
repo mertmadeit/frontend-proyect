@@ -1,11 +1,10 @@
 import React from "react";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { auth } from "@/lib/auth";
+import { getCachedSession } from "@/lib/auth";
 import { normalizeUserRole } from "@/lib/roles";
 
 export default async function DashboardLayout({
@@ -13,10 +12,7 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const requestHeaders = await headers();
-  const session = await auth.api.getSession({
-    headers: requestHeaders,
-  });
+  const session = await getCachedSession();
 
   if (!session) {
     redirect("/login");

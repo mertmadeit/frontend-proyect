@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Metadata } from "next";
-import { auth } from "@/lib/auth";
+import { auth, getCachedSession } from "@/lib/auth";
 import { normalizeUserRole } from "@/lib/roles";
 import { apiFetchJson } from "@/lib/api";
 import { PerfilesCrud, type PerfilDashboard } from "@/components/perfiles-crud";
@@ -17,10 +17,7 @@ type PerfilRaw = {
 };
 
 export default async function PerfilesPage() {
-  const requestHeaders = await headers();
-  const session = await auth.api.getSession({
-    headers: requestHeaders,
-  });
+  const session = await getCachedSession();
 
   if (!session) {
     redirect("/login");
@@ -41,7 +38,7 @@ export default async function PerfilesPage() {
         sortBy: "createdAt",
         sortDirection: "desc",
       },
-      headers: requestHeaders,
+      headers: await headers(),
     }),
   ]);
 

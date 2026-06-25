@@ -9,8 +9,7 @@ import {
   Save,
 } from "lucide-react";
 import Link from "next/link";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { getCachedSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { normalizeUserRole } from "@/lib/roles";
 
@@ -21,7 +20,7 @@ type Props = {
 };
 
 export default async function EditarProducto({ params }: Props) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getCachedSession();
   
   if (!session) {
     redirect("/login");
