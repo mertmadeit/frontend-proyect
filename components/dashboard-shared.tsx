@@ -43,44 +43,46 @@ export function CrudCard({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="shadow-xs bg-white/50 backdrop-blur-sm border-gray-200/60 transition-all duration-300 hover:shadow-sm">
-      <CardHeader className="flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-4">
-        <div>
-          <CardTitle className="text-xl">{title}</CardTitle>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        </div>
-        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
-          {onSearchChange !== undefined && (
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 size-4 text-gray-500" />
-              <Input
-                type="search"
-                placeholder={searchPlaceholder || "Buscar..."}
-                className="w-full pl-9 sm:w-64 bg-white"
-                value={searchValue}
-                onChange={(e) => onSearchChange(e.target.value)}
-              />
-            </div>
-          )}
-          {onAdd && addLabel ? (
-            <Button size="sm" onClick={onAdd} disabled={addDisabled} className="shrink-0 transition-transform hover:scale-[1.02]">
-              <Plus className="mr-1.5 size-4" />
-              {addLabel}
-            </Button>
+    <div className="px-4 lg:px-6">
+      <Card className="shadow-xs bg-white/50 backdrop-blur-sm border-gray-200/60 transition-all duration-300 hover:shadow-sm">
+        <CardHeader className="flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-4">
+          <div>
+            <CardTitle className="text-xl">{title}</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          </div>
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+            {onSearchChange !== undefined && (
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 size-4 text-gray-500" />
+                <Input
+                  type="search"
+                  placeholder={searchPlaceholder || "Buscar..."}
+                  className="w-full pl-9 sm:w-64 bg-white"
+                  value={searchValue}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                />
+              </div>
+            )}
+            {onAdd && addLabel ? (
+              <Button size="sm" onClick={onAdd} disabled={addDisabled} className="shrink-0 transition-transform hover:scale-[1.02]">
+                <Plus className="mr-1.5 size-4" />
+                {addLabel}
+              </Button>
+            ) : null}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {feedback ? (
+            <p className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+              {feedback}
+            </p>
           ) : null}
-        </div>
-      </CardHeader>
-      <CardContent>
-        {feedback ? (
-          <p className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
-            {feedback}
-          </p>
-        ) : null}
-        <div className="overflow-hidden rounded-xl border border-gray-200/60 bg-white">
-          {children}
-        </div>
-      </CardContent>
-    </Card>
+          <div className="overflow-hidden rounded-xl border border-gray-200/60 bg-white">
+            {children}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
